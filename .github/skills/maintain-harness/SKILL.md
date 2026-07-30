@@ -22,7 +22,7 @@ not a nicety.
 
 - Read AGENTS.md. For each line ask: *"Would removing this cause the agent to make
   mistakes?"* If not, mark it for pruning.
-- When Node is present, `node scripts/validate-harness.mjs` enforces a
+- When Node is present, `node harness-scripts/validate-harness.mjs` enforces a
   deterministic line budget on AGENTS.md (200 lines by default) so runaway growth
   fails loud instead of being a purely subjective call.
 - Confirm exactly one always-on file exists (root `AGENTS.md`); flag any
@@ -75,8 +75,8 @@ The prose checks in §3–§5 map onto the optional Layer 1 validator, which mak
 tokenless and objective. When Node is present, a maintenance change is **not done
 until the validator confirms it**:
 
-- Run `node scripts/validate-harness.mjs` (or the verb form
-  `node scripts/harness.mjs validate`). Silent + exit 0 = pass; any loud
+- Run `node harness-scripts/validate-harness.mjs` (or the verb form
+  `node harness-scripts/harness.mjs validate`). Silent + exit 0 = pass; any loud
   `FAIL:` line + non-zero exit = fix before considering the work complete.
 - The same script runs in CI (`local == CI`), so a green local run predicts a green
   gate.

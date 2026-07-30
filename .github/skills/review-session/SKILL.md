@@ -62,7 +62,7 @@ Incident schema (JSON keys, one object per line):
   "detection_signal": { "type": "tool-failure", "evidence": "ENOENT x4; >2 corrections same issue", "threshold_hit": ">2 corrections on one issue" },
   "trigger": "Agent changed working directory, then used relative paths",
   "root_cause": "Tool accepts relative paths; agent cannot reliably track cwd across turns",
-  "remediation": { "layer": "deterministic", "kind": "validator-check", "action": "Reject relative-path tool args", "artifact": "scripts/validate-harness.mjs" },
+  "remediation": { "layer": "deterministic", "kind": "validator-check", "action": "Reject relative-path tool args", "artifact": "harness-scripts/validate-harness.mjs" },
   "prevention_rule": "ALWAYS pass absolute file paths to file tools",
   "followups": [ { "action": "Add validator check for relative-path tool args", "type": "prevent", "done": false } ],
   "lessons": "Structural prevention (poka-yoke) beat restating the rule"
@@ -74,7 +74,7 @@ Minimal variant: `symptom` · `detection_signal` · `root_cause` · `remediation
 ### Step C — Classify severity + check recurrence
 
 - Assign `severity` (low/medium/high) as a cost-of-failure proxy.
-- When Node is present, run `node scripts/backpressure-stats.mjs` to see whether this
+- When Node is present, run `node harness-scripts/backpressure-stats.mjs` to see whether this
   signature (`detection_signal.type` + `root_cause`) is at/over the promotion
   threshold (default **3** open occurrences → "promote to deterministic").
 - High-severity incidents MAY also get a fuller Markdown postmortem at
@@ -102,7 +102,7 @@ do not over-instrument a single incident.
   (instructions, skills, scripts, AGENTS.md). Appending to the incident log itself
   is low-risk and may be automatic.
 - When the remediation is **deterministic**, add a `// ---- Check N ----` block to
-  `scripts/validate-harness.mjs`. The executable layer has no template twins — the
+  `harness-scripts/validate-harness.mjs`. The executable layer has no template twins — the
   live script is the single source the generator copies verbatim, so there is
   nothing to mirror.
 - Append a resolution line closing the incident:
@@ -119,7 +119,7 @@ high-severity postmortem unless asked.
 ## References
 
 - Done-gate + "encode every mistake as a rule": .github/skills/maintain-harness/SKILL.md (§7)
-- Aggregation + recurrence gate: scripts/backpressure-stats.mjs
-- Deterministic guardrails: scripts/validate-harness.mjs
+- Aggregation + recurrence gate: harness-scripts/backpressure-stats.mjs
+- Deterministic guardrails: harness-scripts/validate-harness.mjs
 - Incident log: harness/incidents.jsonl
 - Conventions: knowledge-base/conventions.md

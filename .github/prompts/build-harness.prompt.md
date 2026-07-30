@@ -68,13 +68,13 @@ detected — if Node is absent they simply do not run. Emit each as a **verbatim
 copy of the live source file** (repo-agnostic — they discover the tree from their
 own location — so no placeholder substitution and no header stripping):
 
-1. `scripts/validate-harness.mjs` ← copy `scripts/validate-harness.mjs`
-2. `scripts/heal-harness.mjs` ← copy `scripts/heal-harness.mjs`
-3. `scripts/session-start.mjs` ← copy `scripts/session-start.mjs`
-4. `scripts/session-end.mjs` ← copy `scripts/session-end.mjs`
-5. `scripts/backpressure-stats.mjs` ← copy `scripts/backpressure-stats.mjs`
-6. `scripts/harness.mjs` ← copy `scripts/harness.mjs`
-7. `scripts/doctor.mjs` ← copy `scripts/doctor.mjs`
+1. `harness-scripts/validate-harness.mjs` ← copy `harness-scripts/validate-harness.mjs`
+2. `harness-scripts/heal-harness.mjs` ← copy `harness-scripts/heal-harness.mjs`
+3. `harness-scripts/session-start.mjs` ← copy `harness-scripts/session-start.mjs`
+4. `harness-scripts/session-end.mjs` ← copy `harness-scripts/session-end.mjs`
+5. `harness-scripts/backpressure-stats.mjs` ← copy `harness-scripts/backpressure-stats.mjs`
+6. `harness-scripts/harness.mjs` ← copy `harness-scripts/harness.mjs`
+7. `harness-scripts/doctor.mjs` ← copy `harness-scripts/doctor.mjs`
 
 Alongside these, emit `harness/doctor.yml` from `templates/doctor.yml.template`,
 populated from the Gather-phase tooling answer (git always seeded) — part of the

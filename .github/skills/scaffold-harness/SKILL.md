@@ -63,13 +63,13 @@ them is safe even when no runtime is detected. They are **repo-agnostic** (they
 discover the tree from their own location), so emit each as a **verbatim copy of
 the live source file** — no placeholder substitution, no header stripping:
 
-- `scripts/validate-harness.mjs` ← copy `scripts/validate-harness.mjs`
-- `scripts/heal-harness.mjs` ← copy `scripts/heal-harness.mjs` (Layer 4 agent-reengage wrapper; exit 2 + structured repair directives)
-- `scripts/session-start.mjs` ← copy `scripts/session-start.mjs`
-- `scripts/session-end.mjs` ← copy `scripts/session-end.mjs` (Layer 3 read-only session-end checklist; triggers review-session at the promote threshold)
-- `scripts/backpressure-stats.mjs` ← copy `scripts/backpressure-stats.mjs`
-- `scripts/harness.mjs` ← copy `scripts/harness.mjs` (command-verb dispatcher fronting the scripts above)
-- `scripts/doctor.mjs` ← copy `scripts/doctor.mjs` (hard-gated pre-flight tool/dependency check, reading `harness/doctor.yml`)
+- `harness-scripts/validate-harness.mjs` ← copy `harness-scripts/validate-harness.mjs`
+- `harness-scripts/heal-harness.mjs` ← copy `harness-scripts/heal-harness.mjs` (Layer 4 agent-reengage wrapper; exit 2 + structured repair directives)
+- `harness-scripts/session-start.mjs` ← copy `harness-scripts/session-start.mjs`
+- `harness-scripts/session-end.mjs` ← copy `harness-scripts/session-end.mjs` (Layer 3 read-only session-end checklist; triggers review-session at the promote threshold)
+- `harness-scripts/backpressure-stats.mjs` ← copy `harness-scripts/backpressure-stats.mjs`
+- `harness-scripts/harness.mjs` ← copy `harness-scripts/harness.mjs` (command-verb dispatcher fronting the scripts above)
+- `harness-scripts/doctor.mjs` ← copy `harness-scripts/doctor.mjs` (hard-gated pre-flight tool/dependency check, reading `harness/doctor.yml`)
 
 ### 2b2. Emit the default pre-flight manifest
 

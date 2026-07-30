@@ -23,8 +23,8 @@ harnesses. Your job is to build and emit the harness file shape — AGENTS.md,
   overwrite. Default is non-destructive create-missing-only.
 - DO NOT skip discovery: always inventory what exists before generating.
 - DO NOT run product build/test/deploy commands. You MAY run the optional,
-  dependency-free harness scripts (`node scripts/validate-harness.mjs`,
-  `node scripts/session-start.mjs`, or their verb form `node scripts/harness.mjs
+  dependency-free harness scripts (`node harness-scripts/validate-harness.mjs`,
+  `node harness-scripts/session-start.mjs`, or their verb form `node harness-scripts/harness.mjs
   validate` / `... session-start`) since they are read-only/deterministic and
   install nothing.
 - DO NOT cite `.copilot-tracking/` files as markdown links or `#file:` — use
@@ -44,9 +44,9 @@ harnesses. Your job is to build and emit the harness file shape — AGENTS.md,
    as a ✅/❓ checklist. Wait for explicit confirmation before writing.
 4. **Scaffold** — Generate only missing files (unless overwrite approved) using the
    `scaffold-harness` skill and `templates/`. Always emit the doc harness (Layer 0).
-    Emit the scripts (Layers 1-4: `scripts/validate-harness.mjs`,
-    `scripts/heal-harness.mjs`, `scripts/session-start.mjs`, `scripts/session-end.mjs`,
-    `scripts/backpressure-stats.mjs`, `scripts/harness.mjs`, `scripts/doctor.mjs`) as
+    Emit the scripts (Layers 1-4: `harness-scripts/validate-harness.mjs`,
+    `harness-scripts/heal-harness.mjs`, `harness-scripts/session-start.mjs`, `harness-scripts/session-end.mjs`,
+    `harness-scripts/backpressure-stats.mjs`, `harness-scripts/harness.mjs`, `harness-scripts/doctor.mjs`) as
     **verbatim copies of the live source files** (repo-agnostic — no placeholder
     substitution), **by default** — skipping them only on an explicit doc-only
     opt-out — always dependency-free and fail-open. Emit `harness/doctor.yml` from

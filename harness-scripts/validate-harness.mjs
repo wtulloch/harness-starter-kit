@@ -1,0 +1,504 @@
+#!/usr/bin/env node
+// validate-harness.mjs — Layer 1 deterministic harness gate.
+//
+// Makes the maintain-harness prose checks deterministic (no LLM, no tokens).
+// Silent on a full pass; on failure prints one "FAIL: <check> — <detail>" line
+// per problem, a summary, and exits 1. Node built-ins only — no npm install.
+//
+//   Exit 0  all checks pass (no output)
+//   Exit 1  one or more checks failed
+//
+// Pass `--fix` to apply the safe subset of repairs (currently: quote a
+// frontmatter `description:` value containing a colon). Riskier findings are
+// surfaced as SUGGEST: hints, never auto-applied. Default (no flag) is unchanged.
+//
+// (Exit 2 is used by the L4 agent-reengage wrapper harness-scripts/heal-harness.mjs, which
+//  wraps this validator and re-emits failures as structured repair directives.)
+
+import { readFileSync, readdirSync, statSync, writeFileSync, existsSync } from 'node:fs';
+import { join, dirname, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+/**
+ * Locate the repo root by walking upward from `startDir` looking for a `.git`
+ * entry (dir or file — handles worktrees/submodules) or an `AGENTS.md` file.
+ * Falls back to the legacy one-level-up assumption if neither marker is found
+ * anywhere above `startDir` (fail-open — this never throws).
+ */
+function findRepoRoot(startDir) {
+  let dir = startDir;
+  while (true) {
+    if (existsSync(join(dir, '.git')) || existsSync(join(dir, 'AGENTS.md'))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) return resolve(startDir, '..'); // no marker found — legacy fallback
+    dir = parent;
+  }
+}
+
+const ROOT = findRepoRoot(dirname(fileURLToPath(import.meta.url)));
+
+const failures = [];
+const fail = (check, detail) => failures.push(`FAIL: ${check} — ${detail}`);
+
+// `--fix` applies the safe subset of repairs; without it behavior is unchanged.
+const FIX = process.argv.slice(2).includes('--fix');
+const fixes = [];
+
+/** Path relative to repo root, forward slashes. */
+const rel = (p) => relative(ROOT, p).split('\\').join('/');
+
+/** Recursively list files under a directory, skipping node_modules/.git. */
+function walk(dir, out = []) {
+  if (!existsSync(dir)) return out;
+  for (const name of readdirSync(dir)) {
+    if (name === 'node_modules' || name === '.git') continue;
+    const full = join(dir, name);
+    if (statSync(full).isDirectory()) walk(full, out);
+    else out.push(full);
+  }
+  return out;
+}
+
+/**
+ * Parse a top-level `---`-delimited frontmatter block into a flat key→value map.
+ * Returns { ok, keys, raw } where keys is null when no valid block is present.
+ * Hand-rolled — no YAML dependency. Handles simple `key: value` scalars and
+ * single-level `key:\n  - item` lists (values become string[]). Nested maps and
+ * multi-line block scalars remain unsupported — a documented limit, not a silent
+ * gap: anything beyond a flat scalar or a flat list of scalars is out of scope.
+ */
+function parseFrontmatter(text) {
+  if (!text.startsWith('---')) return { ok: false, keys: null };
+  const lines = text.split(/\r?\n/);
+  if (lines[0].trim() !== '---') return { ok: false, keys: null };
+  let end = -1;
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i].trim() === '---') { end = i; break; }
+  }
+  if (end === -1) return { ok: false, keys: null };
+  const keys = {};
+  let i = 1;
+  while (i < end) {
+    const line = lines[i];
+    if (!line.trim() || line.startsWith('#')) { i++; continue; }
+    // Only capture top-level keys (no leading indentation).
+    const m = /^([A-Za-z0-9_-]+):\s*(.*)$/.exec(line);
+    if (/^\s/.test(line) || !m) { i++; continue; }
+    let value = m[2].trim();
+    if (!value) {
+      // Empty inline value — look for a following flat `  - item` list.
+      const items = [];
+      let j = i + 1;
+      while (j < end && /^\s+-\s*(.+?)\s*$/.test(lines[j])) {
+        items.push(/^\s+-\s*(.+?)\s*$/.exec(lines[j])[1].trim());
+        j++;
+      }
+      if (items.length > 0) {
+        keys[m[1]] = items;
+        i = j;
+        continue;
+      }
+      keys[m[1]] = '';
+      i++;
+      continue;
+    }
+    if ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    keys[m[1]] = value;
+    i++;
+  }
+  return { ok: true, keys };
+}
+
+// ---------------------------------------------------------------------------
+// Check 1 — frontmatter parses + description present for every customization file.
+// ---------------------------------------------------------------------------
+const customizationFiles = walk(join(ROOT, '.github')).filter((p) =>
+  /\.instructions\.md$/.test(p) ||
+  /\.prompt\.md$/.test(p) ||
+  /\.agent\.md$/.test(p) ||
+  /[/\\]SKILL\.md$/.test(p)
+);
+
+// ---------------------------------------------------------------------------
+// Optional `--fix` pass — safe, mechanical normalizations only. Currently:
+// quote a frontmatter `description:` value that contains a colon but is not yet
+// quoted (the one unambiguous, reversible repair). Riskier findings (skill
+// folder/name mismatch, bare applyTo) are surfaced as SUGGEST: hints below,
+// never auto-applied.
+// ---------------------------------------------------------------------------
+if (FIX) {
+  for (const file of customizationFiles) {
+    const lines = readFileSync(file, 'utf8').split(/\r?\n/);
+    if (lines[0] === undefined || lines[0].trim() !== '---') continue;
+    let end = -1;
+    for (let i = 1; i < lines.length; i++) { if (lines[i].trim() === '---') { end = i; break; } }
+    if (end === -1) continue;
+    let changed = false;
+    for (let i = 1; i < end; i++) {
+      const m = /^description:\s*(.*)$/.exec(lines[i]);
+      if (!m) continue;
+      const value = m[1].trim();
+      if (!value || !value.includes(':')) continue; // no colon -> quoting optional
+      if ((value.startsWith('"') && value.endsWith('"')) ||
+          (value.startsWith("'") && value.endsWith("'"))) continue; // already quoted
+      lines[i] = `description: "${value.replace(/"/g, '\\"')}"`;
+      changed = true;
+    }
+    if (changed) {
+      writeFileSync(file, lines.join('\n'));
+      fixes.push(rel(file));
+    }
+  }
+}
+
+for (const file of customizationFiles) {
+  const text = readFileSync(file, 'utf8');
+  const { ok, keys } = parseFrontmatter(text);
+  if (!ok) {
+    fail('frontmatter', `${rel(file)}: missing or unterminated \`---\` frontmatter block`);
+    continue;
+  }
+  if (!keys.description || !keys.description.trim()) {
+    fail('frontmatter', `${rel(file)}: missing or empty \`description\` (the discovery surface)`);
+  }
+  // List-valued keys (agent frontmatter): if declared, must parse as a non-empty
+  // list — catches a `tools:`/`agents:` header with no items under it.
+  for (const listKey of ['tools', 'agents']) {
+    if (keys[listKey] !== undefined && (!Array.isArray(keys[listKey]) || keys[listKey].length === 0)) {
+      fail('frontmatter', `${rel(file)}: \`${listKey}:\` is present but not a non-empty list`);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Check 2 — each skill folder name equals its `name:` field.
+// ---------------------------------------------------------------------------
+const skillFiles = customizationFiles.filter((p) => /[/\\]SKILL\.md$/.test(p));
+for (const file of skillFiles) {
+  const { keys } = parseFrontmatter(readFileSync(file, 'utf8'));
+  const folder = dirname(file).split(/[/\\]/).pop();
+  if (!keys || !keys.name) {
+    fail('skill-name', `${rel(file)}: SKILL.md has no \`name\` field`);
+  } else if (keys.name !== folder) {
+    fail('skill-name', `${rel(file)}: name "${keys.name}" ≠ folder "${folder}"`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Check 3 — flag a bare `applyTo: "**"` (loads on every request; likely a mistake).
+// applyTo is optional (description-triggered files omit it); only the bare
+// catch-all glob is flagged.
+// ---------------------------------------------------------------------------
+for (const file of customizationFiles.filter((p) => /\.instructions\.md$/.test(p))) {
+  const { keys } = parseFrontmatter(readFileSync(file, 'utf8'));
+  if (keys && keys.applyTo && keys.applyTo.trim() === '**') {
+    fail('applyTo', `${rel(file)}: bare \`applyTo: "**"\` loads on every request — scope it`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Check 4 — features.yml parses and conforms to the minimal schema.
+// ---------------------------------------------------------------------------
+const featuresPath = join(ROOT, 'features.yml');
+if (!existsSync(featuresPath)) {
+  fail('features-schema', 'features.yml is missing');
+} else {
+  const lines = readFileSync(featuresPath, 'utf8').split(/\r?\n/);
+  for (const key of ['schema_version', 'status_legend', 'features']) {
+    if (!lines.some((l) => new RegExp(`^${key}:`).test(l))) {
+      fail('features-schema', `features.yml: missing top-level \`${key}\``);
+    }
+  }
+  const legendStart = lines.findIndex((l) => /^status_legend:/.test(l));
+  const allowedStatuses = new Set();
+  if (legendStart !== -1) {
+    for (const line of lines.slice(legendStart + 1)) {
+      if (/^\S/.test(line)) break;
+      const match = /^  ([A-Za-z0-9_-]+):/.exec(line);
+      if (match) allowedStatuses.add(match[1]);
+    }
+  }
+  const featIdx = lines.findIndex((l) => /^features:/.test(l));
+  if (featIdx !== -1) {
+    const blocks = [];
+    let cur = null;
+    for (const line of lines.slice(featIdx + 1)) {
+      if (/^  - /.test(line)) { if (cur) blocks.push(cur); cur = [line]; }
+      else if (cur) cur.push(line);
+    }
+    if (cur) blocks.push(cur);
+    if (blocks.length === 0) {
+      fail('features-schema', 'features.yml: `features` list is empty');
+    }
+    const seenIds = new Set();
+    for (const block of blocks) {
+      const body = block.join('\n');
+      const id = (/(?:^|\n)\s*-?\s*id:\s*(\S+)/.exec(body) || [])[1] || '(unknown)';
+      for (const field of ['id', 'title', 'status']) {
+        if (!new RegExp(`(?:^|\\n)\\s*(?:-\\s*)?${field}:\\s*\\S`).test(body)) {
+          fail('features-schema', `features.yml: feature ${id} missing \`${field}\``);
+        }
+      }
+      if (id !== '(unknown)') {
+        if (seenIds.has(id)) fail('features-schema', `features.yml: duplicate feature id \`${id}\``);
+        seenIds.add(id);
+      }
+      const status = (/(?:^|\n)\s*status:\s*(\S+)/.exec(body) || [])[1];
+      if (status && !allowedStatuses.has(status)) {
+        fail('features-schema', `features.yml: feature ${id} has undeclared status \`${status}\``);
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Check 5 — exactly one always-on file (root AGENTS.md); no co-shipped
+// .github/copilot-instructions.md.
+// ---------------------------------------------------------------------------
+if (!existsSync(join(ROOT, 'AGENTS.md'))) {
+  fail('always-on', 'root AGENTS.md is missing (the single always-on file)');
+}
+if (existsSync(join(ROOT, '.github', 'copilot-instructions.md'))) {
+  fail('always-on', '.github/copilot-instructions.md co-ships with AGENTS.md — keep only AGENTS.md');
+}
+
+// ---------------------------------------------------------------------------
+// Committed markdown docs to scan for links + tracking-path citations.
+// ---------------------------------------------------------------------------
+const committedDocs = [...new Set([
+  ...readdirSync(ROOT).filter((name) => name.endsWith('.md')).map((name) => join(ROOT, name)),
+  ...['knowledge-base', 'project-notes', 'tests', join('harness', 'state')]
+    .flatMap((dir) => walk(join(ROOT, dir)).filter((p) => p.endsWith('.md'))),
+  ...customizationFiles,
+])].filter(existsSync);
+
+const linkRe = /\[[^\]]*\]\(([^)]+)\)/g;
+const markdownProse = (text) => {
+  let inFence = false;
+  return text.split(/\r?\n/).filter((line) => {
+    if (/^\s*```/.test(line)) { inFence = !inFence; return false; }
+    return !inFence;
+  }).join('\n');
+};
+
+// ---------------------------------------------------------------------------
+// Check 6 — markdown links in committed docs resolve to existing paths.
+// ---------------------------------------------------------------------------
+for (const file of committedDocs) {
+  const text = markdownProse(readFileSync(file, 'utf8'));
+  for (const m of text.matchAll(linkRe)) {
+    let target = m[1].trim();
+    if (/^(https?:|mailto:|#)/.test(target)) continue; // external / anchor
+    target = target.split('#')[0]; // strip line/section fragment
+    if (!target) continue;
+    const decoded = decodeURIComponent(target);
+    const resolved = resolve(dirname(file), decoded);
+    if (!existsSync(resolved)) {
+      fail('link', `${rel(file)}: broken link → ${target}`);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Check 7 — .copilot-tracking/** cited as plain text (no markdown link, no #file:).
+// ---------------------------------------------------------------------------
+for (const file of committedDocs) {
+  const text = markdownProse(readFileSync(file, 'utf8'));
+  for (const m of text.matchAll(linkRe)) {
+    if (m[1].includes('.copilot-tracking/')) {
+      fail('tracking-citation', `${rel(file)}: .copilot-tracking path in a markdown link (use plain text) → ${m[1].trim()}`);
+    }
+  }
+  if (/#file:[^\s)]*\.copilot-tracking\//.test(text)) {
+    fail('tracking-citation', `${rel(file)}: \`#file:\` reference to .copilot-tracking (use a plain-text path)`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Check 10 — concrete artifact paths in feature/state tracking resolve.
+// Placeholder-bearing template values and URLs are intentionally skipped.
+// ---------------------------------------------------------------------------
+function checkArtifact(owner, rawPath) {
+  const artifact = rawPath.trim().replace(/^['"]|['"]$/g, '');
+  if (!artifact || artifact.includes('{{') || /^(https?:|mailto:)/.test(artifact)) return;
+  if (!existsSync(resolve(ROOT, artifact))) {
+    fail('tracked-artifact', `${owner}: artifact does not exist → ${artifact}`);
+  }
+}
+
+if (existsSync(featuresPath)) {
+  const lines = readFileSync(featuresPath, 'utf8').split(/\r?\n/);
+  let inArtifacts = false;
+  for (const line of lines) {
+    if (/^    artifacts:\s*$/.test(line)) { inArtifacts = true; continue; }
+    if (inArtifacts && /^    \S/.test(line)) inArtifacts = false;
+    const match = inArtifacts ? /^      -\s+(.+?)\s*$/.exec(line) : null;
+    if (match) checkArtifact('features.yml', match[1]);
+  }
+}
+
+for (const stateFile of walk(join(ROOT, 'harness', 'state')).filter((p) => p.endsWith('state.md'))) {
+  const text = readFileSync(stateFile, 'utf8');
+  for (const match of text.matchAll(/^\s+- path:\s*["']?([^"'\r\n]+?)["']?\s*$/gm)) {
+    checkArtifact(rel(stateFile), match[1]);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Check 8 — incident log (harness/incidents.jsonl) is well-formed JSONL.
+// Optional artifact: absent or empty passes silently (fail-open). When present,
+// every non-blank line must parse as JSON so the self-healing loop's log can
+// never silently corrupt.
+// ---------------------------------------------------------------------------
+const incidentsPath = join(ROOT, 'harness', 'incidents.jsonl');
+if (existsSync(incidentsPath)) {
+  const incidentLines = readFileSync(incidentsPath, 'utf8').split(/\r?\n/);
+  incidentLines.forEach((line, i) => {
+    if (!line.trim()) return;
+    try {
+      JSON.parse(line);
+    } catch {
+      fail('incident-log', `harness/incidents.jsonl: line ${i + 1} is not valid JSON`);
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Check 11 — AGENTS.md stays within a deterministic leanness budget. A generous
+// line cap, not a stylistic nitpick — it exists to catch runaway growth (the
+// always-on file bloating until agents start ignoring it), makes the
+// maintain-harness "keep it lean" discipline tokenless, and is intentionally a
+// single constant so a project can tune it for its own repo.
+// ---------------------------------------------------------------------------
+const AGENTS_LINE_BUDGET = 200;
+const agentsPath = join(ROOT, 'AGENTS.md');
+if (existsSync(agentsPath)) {
+  const lineCount = readFileSync(agentsPath, 'utf8').split(/\r?\n/).length;
+  if (lineCount > AGENTS_LINE_BUDGET) {
+    fail('agents-budget', `AGENTS.md is ${lineCount} lines (budget: ${AGENTS_LINE_BUDGET}) — prune per the maintain-harness leanness discipline (link, don't embed)`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Check 12 — deterministic secret-scan over every committed file. Regex-based,
+// no dependency; patterns are intentionally narrow (high-entropy / well-known
+// prefixes) to keep false positives low — this is a safety net, not a full
+// secret-detection tool. Skips binary files (a NUL byte anywhere in the read).
+// ---------------------------------------------------------------------------
+const SECRET_PATTERNS = [
+  { name: 'aws-access-key-id', re: /AKIA[0-9A-Z]{16}/ },
+  { name: 'github-token', re: /gh[pousr]_[A-Za-z0-9]{36,}/ },
+  { name: 'slack-token', re: /xox[baprs]-[A-Za-z0-9-]{10,}/ },
+  { name: 'pem-private-key', re: /-----BEGIN (RSA |EC |OPENSSH |DSA |)PRIVATE KEY-----/ },
+  { name: 'generic-secret-assignment', re: /\b(api[_-]?key|secret|password)\b\s*[:=]\s*['"][A-Za-z0-9_-]{16,}['"]/i },
+];
+for (const file of walk(ROOT)) {
+  let text;
+  try { text = readFileSync(file, 'utf8'); } catch { continue; }
+  if (text.includes('\u0000')) continue; // binary — skip
+  for (const { name, re } of SECRET_PATTERNS) {
+    const m = re.exec(text);
+    if (m) {
+      const lineNo = text.slice(0, m.index).split(/\r?\n/).length;
+      fail('secret-scan', `${rel(file)}:${lineNo}: possible ${name} — verify and remove before committing`);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Check 13 — .github/hooks/hooks.json (optional, opt-in agent-hooks layer), if
+// present, is well-formed JSON with a numeric `version` and a `hooks` object,
+// and every `*.mjs` path referenced in a command/bash/powershell/
+// command string actually exists. Consistency-only (D-14 style): the file is
+// optional and its absence is never a failure — this is not a hooks-schema
+// validator.
+// ---------------------------------------------------------------------------
+const hooksConfigPath = join(ROOT, '.github', 'hooks', 'hooks.json');
+if (existsSync(hooksConfigPath)) {
+  const raw = readFileSync(hooksConfigPath, 'utf8');
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    fail('hooks-config', `.github/hooks/hooks.json is not valid JSON — ${e.message}`);
+  }
+  if (parsed) {
+    if (typeof parsed.version !== 'number') {
+      fail('hooks-config', '.github/hooks/hooks.json is missing a numeric "version" field');
+    }
+    if (!parsed.hooks || typeof parsed.hooks !== 'object') {
+      fail('hooks-config', '.github/hooks/hooks.json is missing a "hooks" object');
+    } else {
+      const scriptRefs = new Set();
+      for (const m of raw.matchAll(/[\w.-]+(?:\/[\w.-]+)*\.mjs/g)) scriptRefs.add(m[0]);
+      for (const ref of scriptRefs) {
+        if (!existsSync(join(ROOT, ref))) {
+          fail('hooks-config', `.github/hooks/hooks.json references "${ref}", which does not exist in the repo`);
+        }
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Check 14 — harness/doctor.yml (optional, default-emitted pre-flight
+// manifest), if present, has a `tools:` list where every entry has a non-empty
+// `name` and a non-empty `check` array, and `required` (if present) is `true`
+// or `false`. Consistency-only (D-14 style): absence is never a failure — this
+// is not a tool-presence check (that's harness-scripts/doctor.mjs's job).
+// ---------------------------------------------------------------------------
+const doctorYamlPath = join(ROOT, 'harness', 'doctor.yml');
+if (existsSync(doctorYamlPath)) {
+  const dLines = readFileSync(doctorYamlPath, 'utf8').split(/\r?\n/);
+  const toolsIdx = dLines.findIndex((l) => /^tools:\s*$/.test(l));
+  if (toolsIdx === -1) {
+    fail('doctor-yaml', 'harness/doctor.yml: missing top-level `tools:` key');
+  } else {
+    const blocks = [];
+    let cur = null;
+    for (const line of dLines.slice(toolsIdx + 1)) {
+      if (/^  - /.test(line)) { if (cur) blocks.push(cur); cur = [line]; }
+      else if (cur && /^\s/.test(line)) cur.push(line);
+      else break;
+    }
+    if (cur) blocks.push(cur);
+    for (const block of blocks) {
+      const body = block.join('\n');
+      const name = (/name:\s*(\S+)/.exec(body) || [])[1];
+      const checkMatch = /check:\s*(\[.*\])/.exec(body);
+      let checkArr = null;
+      if (checkMatch) { try { checkArr = JSON.parse(checkMatch[1]); } catch { checkArr = null; } }
+      const requiredMatch = /required:\s*(\S+)/.exec(body);
+      if (!name) fail('doctor-yaml', 'harness/doctor.yml: a tools entry is missing `name`');
+      if (!Array.isArray(checkArr) || checkArr.length === 0) {
+        fail('doctor-yaml', `harness/doctor.yml: tool ${name || '(unnamed)'} has an invalid or empty \`check\` array`);
+      }
+      if (requiredMatch && !['true', 'false'].includes(requiredMatch[1])) {
+        fail('doctor-yaml', `harness/doctor.yml: tool ${name || '(unnamed)'} has a non-boolean \`required\` value`);
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Report.
+// ---------------------------------------------------------------------------
+if (FIX && fixes.length > 0) {
+  for (const f of fixes) console.log(`FIXED: description-quote — ${f}`);
+}
+
+if (failures.length > 0) {
+  for (const line of failures) {
+    console.error(line);
+    if (FIX && /^FAIL: skill-name /.test(line)) {
+      console.error('  SUGGEST: rename the folder or the `name:` field so they match (not auto-applied).');
+    } else if (FIX && /^FAIL: applyTo /.test(line)) {
+      console.error('  SUGGEST: replace `**` with a specific glob for the paths this file governs (not auto-applied).');
+    }
+  }
+  console.error(`\n${failures.length} harness validation failure(s).`);
+  process.exit(1);
+}
