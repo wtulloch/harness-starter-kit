@@ -31,8 +31,9 @@ emit procedure the `build-harness` generator prompt leans on during its Scaffold
 
 Scan the target repo for: `AGENTS.md`, `PROGRESS.md`, `features.yml`,
 `.github/instructions/`, `.github/prompts/`, `.github/skills/`, `.github/agents/`,
-`knowledge-base/`, `harness/state/`, and `harness/incidents.jsonl`. Present a ✅/❌
-checklist. Never overwrite unless overwrite is approved.
+`knowledge-base/`, `harness/state/`, `harness/incidents.jsonl`, and
+`harness/doctor.yml`. Present a ✅/❌ checklist. Never overwrite unless overwrite
+is approved.
 
 ### 2. Generate missing files from templates
 
@@ -68,6 +69,15 @@ the live source file** — no placeholder substitution, no header stripping:
 - `scripts/session-end.mjs` ← copy `scripts/session-end.mjs` (Layer 3 read-only session-end checklist; triggers review-session at the promote threshold)
 - `scripts/backpressure-stats.mjs` ← copy `scripts/backpressure-stats.mjs`
 - `scripts/harness.mjs` ← copy `scripts/harness.mjs` (command-verb dispatcher fronting the scripts above)
+- `scripts/doctor.mjs` ← copy `scripts/doctor.mjs` (hard-gated pre-flight tool/dependency check, reading `harness/doctor.yml`)
+
+### 2b2. Emit the default pre-flight manifest
+
+Alongside the scripts above, emit `harness/doctor.yml` from
+`templates/doctor.yml.template`, populated with `git` (always seeded) plus any
+additional tooling named during the Gather-phase interview (Phase 1 of the
+`build-harness` prompt). This has no separate opt-in gate — it is part of the
+default scaffold, same as the two-tier tracking default in Section 3.
 
 ### 2c. Emit the CI workflow + local hook only on opt-in
 

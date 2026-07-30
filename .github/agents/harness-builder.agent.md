@@ -36,19 +36,24 @@ harnesses. Your job is to build and emit the harness file shape — AGENTS.md,
    `state.md` if the initiative opted into the third tier. If present, summarize
    progress and ask whether to resume or restart. Inventory present/missing harness
    files (✅/❌).
-2. **Gather** — Ask a bounded set (≤7) of focused questions (purpose, stack,
-   build/test commands, code style, conventions, target agents, desired skills),
-   seeding answers from any existing README / manifest first.
+2. **Gather** — Ask a bounded set (≤8) of focused questions (purpose, stack,
+   build/test commands, code style, conventions, target agents, desired skills,
+   and any required command-line tools beyond git and whether each is required
+   or optional), seeding answers from any existing README / manifest first.
 3. **Confirm** — Present a compact spec and the exact file plan (paths + purpose)
    as a ✅/❓ checklist. Wait for explicit confirmation before writing.
 4. **Scaffold** — Generate only missing files (unless overwrite approved) using the
    `scaffold-harness` skill and `templates/`. Always emit the doc harness (Layer 0).
     Emit the scripts (Layers 1-4: `scripts/validate-harness.mjs`,
     `scripts/heal-harness.mjs`, `scripts/session-start.mjs`, `scripts/session-end.mjs`,
-    `scripts/backpressure-stats.mjs`, `scripts/harness.mjs`) as **verbatim copies
-    of the live source files** (repo-agnostic — no placeholder substitution),
-   **by default** — skipping them only on an explicit doc-only opt-out — always
-    dependency-free and fail-open. Emit `.github/workflows/validate.yml` and
+    `scripts/backpressure-stats.mjs`, `scripts/harness.mjs`, `scripts/doctor.mjs`) as
+    **verbatim copies of the live source files** (repo-agnostic — no placeholder
+    substitution), **by default** — skipping them only on an explicit doc-only
+    opt-out — always dependency-free and fail-open. Emit `harness/doctor.yml` from
+    `templates/doctor.yml.template`, populated with `git` (always) plus any
+    additional tooling named during Gather, as part of the same default scaffold
+    (no new opt-in), distinct from the `ci_hook`/`agent_hooks` opt-in clauses below.
+    Emit `.github/workflows/validate.yml` and
     `.githooks/pre-commit` **only on an explicit `ci_hook=true` opt-in** (they
     touch shared infrastructure — a CI runner, a contributor's git config — unlike
     the inert scripts) and record the emit decision in the committed tracking.

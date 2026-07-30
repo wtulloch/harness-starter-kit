@@ -1,0 +1,11 @@
+{{! Generator template: emit to `harness/doctor.yml` in the target repo, }}
+{{! stripping these leading `{{! ... }}` header lines. v1 is presence/PATH }}
+{{! detection only — no version-constraint parsing. Read by scripts/doctor.mjs }}
+{{! (node scripts/harness.mjs doctor). Absence of this file is never a failure — }}
+{{! doctor.mjs fails open with exit 0 and a note. Populate `tools:` during the }}
+{{! Gather-phase interview (git is always seeded; add more from the tooling }}
+{{! answer), or add entries later and re-run `doctor`. }}
+tools:
+  - name: git
+    check: ["git", "--version"]
+    required: true

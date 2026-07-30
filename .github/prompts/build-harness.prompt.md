@@ -33,9 +33,11 @@ for initiative `${input:project-slug}`.
 
 ### Phase 1 — Gather (interview)
 
-Present a one-sentence scope summary, then ask up to 7 focused questions (purpose,
+Present a one-sentence scope summary, then ask up to 8 focused questions (purpose,
 stack, build/test commands, code style, conventions/gotchas, target agents,
-desired skills). Seed answers from any existing README / package manifest first.
+desired skills, and any required command-line tools beyond git — e.g. a package
+manager, cloud CLI, or language runtime — and whether each is required or
+optional). Seed answers from any existing README / package manifest first.
 
 ### Phase 2 — Confirm
 
@@ -72,6 +74,11 @@ own location — so no placeholder substitution and no header stripping):
 4. `scripts/session-end.mjs` ← copy `scripts/session-end.mjs`
 5. `scripts/backpressure-stats.mjs` ← copy `scripts/backpressure-stats.mjs`
 6. `scripts/harness.mjs` ← copy `scripts/harness.mjs`
+7. `scripts/doctor.mjs` ← copy `scripts/doctor.mjs`
+
+Alongside these, emit `harness/doctor.yml` from `templates/doctor.yml.template`,
+populated from the Gather-phase tooling answer (git always seeded) — part of the
+default scaffold, no new opt-in input.
 
 #### Phase 3c — CI workflow + local hook, emitted only on opt-in
 
