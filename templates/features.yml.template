@@ -1,0 +1,28 @@
+# features.yml (repo root)
+# Committed source of truth for feature-level scope and status.
+schema_version: 1
+project: {{project-slug}}
+updated: {{YYYY-MM-DD}}
+
+status_legend:
+  planned: Not started
+  in_progress: Actively being built
+  blocked: Waiting on a dependency or decision
+  done: Complete and verified
+  deferred: Consciously postponed
+
+features:
+  - id: F-001
+    title: {{feature title}}
+    status: planned
+    priority: high
+    owner: {{owner}}
+    depends_on: []
+    acceptance:
+      - "{{acceptance criterion}}"
+    artifacts:
+      - {{workspace-relative path}}
+    notes: "{{optional notes}}"
+    history:
+      - date: {{YYYY-MM-DD}}
+        change: "Created"

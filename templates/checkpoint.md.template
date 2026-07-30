@@ -1,0 +1,22 @@
+# Checkpoint {{N}} — {{YYYY-MM-DD}}T{{HH:MM}}Z
+
+## Overview
+
+{{One or two sentences: the state captured at this checkpoint.}}
+
+## Work done
+
+- {{completed item}}
+
+## Technical details
+
+- {{key technical fact needed to resume, e.g. schema, path, decision}}
+
+## Important files
+
+- {{path}}
+
+## Next steps
+
+1. {{next step}}
+2. {{next step}}

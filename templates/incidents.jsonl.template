@@ -1,0 +1,24 @@
+{{! Generator template: emit verbatim to `harness/incidents.jsonl` in the target }}
+{{! repo, stripping these leading `{{! ... }}` header lines. Emit an EMPTY file }}
+{{! (zero data lines) — do not fabricate incidents. The doc harness (Layer 0) }}
+{{! works without it; the review-session skill and backpressure-stats.mjs read it. }}
+{{! }}
+{{! Format: append-only JSONL — one JSON object per line. Incident schema keys: }}
+{{!   id                 date + counter, e.g. "sh-2026-07-10-01" }}
+{{!   title              short human summary }}
+{{!   status             "open" | "remediated" | "wont-fix" }}
+{{!   severity           "low" | "medium" | "high" (cost-of-failure proxy) }}
+{{!   symptom            what was observed }}
+{{!   detection_signal   { type, evidence, threshold_hit } }}
+{{!                      type ∈ repeated-correction | tool-failure | edit-thrash | }}
+{{!                             context-saturation | tripwire | validator-fail | backtrack }}
+{{!   trigger            proximate cause }}
+{{!   root_cause         underlying cause (5 Whys) }}
+{{!   remediation        { layer, kind, action, artifact } }}
+{{!                      layer ∈ probabilistic | heuristic | deterministic (ladder rung) }}
+{{!   prevention_rule    durable ALWAYS/NEVER if heuristic-layer }}
+{{!   followups          [ { action, type: mitigate|prevent|process, done: bool } ] }}
+{{!   lessons            optional terse note }}
+{{! }}
+{{! Resolution lines close the loop and are counted by backpressure-stats.mjs: }}
+{{!   {"type":"resolution","resolves":"sh-...","files_modified":[...],"date":"YYYY-MM-DD"} }}

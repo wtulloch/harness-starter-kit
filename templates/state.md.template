@@ -1,0 +1,25 @@
+<!-- markdownlint-disable-file -->
+# State: {{project-name}}
+
+```yaml
+project:
+  name: "{{Human-readable project name}}"
+  slug: "{{kebab-case-identifier}}"
+  created: "{{YYYY-MM-DD}}"
+  initial_request: "{{The originating request, verbatim or summarized}}"
+current:
+  phase: "{{current phase}}"
+  step: "{{current step}}"
+transition_log:
+  - from_phase: null
+    to_phase: "{{first phase}}"
+    rationale: "Project initialized"
+    date: "{{YYYY-MM-DD}}"
+session_log:
+  - date: "{{YYYY-MM-DD}}"
+    phase: "{{phase}}"
+    summary: "{{Brief description of session work}}"
+artifacts:
+  - path: "{{workspace-relative path}}"
+    type: "{{plan|details|research|harness|other}}"
+```
