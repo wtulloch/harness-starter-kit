@@ -30,6 +30,9 @@ for initiative `${input:project-slug}`.
    .github/instructions, .github/skills, .github/prompts, .github/agents,
    knowledge-base, harness/state). Present ✅ present / ❌ missing. Do NOT
    overwrite unless `${input:overwrite}` is true.
+4. Record the **AGENTS.md reconciliation state** — neither / `AGENTS.md` only /
+   `.github/copilot-instructions.md` only / both — since it selects the Phase 3
+   `merge_agents` action.
 
 ### Phase 1 — Gather (interview)
 
@@ -37,7 +40,12 @@ Present a one-sentence scope summary, then ask up to 8 focused questions (purpos
 stack, build/test commands, code style, conventions/gotchas, target agents,
 desired skills, and any required command-line tools beyond git — e.g. a package
 manager, cloud CLI, or language runtime — and whether each is required or
-optional). Seed answers from any existing README / package manifest first.
+optional). Seed answers from any existing README / package manifest first. When
+seeding from manifests, also map each detected manifest (package.json,
+pyproject.toml/requirements.txt, go.mod, Cargo.toml, pom.xml/build.gradle,
+*.csproj/*.sln) to the `doctor.yml` `tools:` entries it implies via
+[knowledge-base/toolchain-detection.md](../../knowledge-base/toolchain-detection.md),
+so the Phase 3 manifest seeding has its inputs ready.
 
 ### Phase 2 — Confirm
 
@@ -54,10 +62,32 @@ from templates/incidents.jsonl.template with its `{{! ... }}` header stripped).
 Seed the two-tier tracking default (`PROGRESS.md` + `features.yml`). Emit
 `harness/state/${input:project-slug}/state.md` (from templates/state.md.template)
 **only when the user opts into** the phase-aware third tier — skip it otherwise.
-Fill placeholders from templates/. Also emit a `.gitignore` (ignoring
-`.copilot-tracking/`) and a `.gitattributes` with `* text=auto eol=lf` so emitted
-files normalize to LF. Prefer /create-instruction, /create-skill, /create-prompt,
-/create-agent for frontmatter where available.
+Fill placeholders from templates/. Wire `.gitignore` and `.gitattributes` with
+**create-then-append-if-line-missing**: when the target file is absent, create it
+with the harness lines; when present, append only the missing harness lines and
+preserve existing content. Exact lines — `.gitignore` → `.copilot-tracking/`,
+`.env`, `.env.*`, `!.env.example`; `.gitattributes` → `* text=auto eol=lf` so
+emitted files normalize to LF. Prefer /create-instruction, /create-skill,
+/create-prompt, /create-agent for frontmatter where available.
+
+**`merge_agents` branch (AGENTS.md reconciliation).** Branch on the four-state
+result recorded in Phase 0 rather than plain create-missing-only:
+
+- **Neither** → emit the full `templates/AGENTS.md.template` (greenfield).
+- **`AGENTS.md` only** → inject the harness managed block (between the
+  `<!-- HARNESS:BEGIN (managed by scaffold-harness — edits inside are overwritten) -->`
+  and `<!-- HARNESS:END -->` sentinels) via scaffold-harness Section 2a's
+  replace-or-append idempotency; leave project-owned sections untouched.
+- **`.github/copilot-instructions.md` only** → create `AGENTS.md` with the managed
+  block, then run the migrate-and-delete protocol below.
+- **Both** → inject the managed block into `AGENTS.md`, then run migrate-and-delete.
+
+**migrate-and-delete protocol (default).** When `.github/copilot-instructions.md`
+is present: (1) migrate its content into the project-owned sections of `AGENTS.md`
+so nothing is lost; (2) announce the removal to the user; (3) delete
+`copilot-instructions.md`. The migrated content must land in `AGENTS.md` **before**
+removal — never a silent loss — which keeps the single-always-on standard and
+validator Check 5 green (no co-shipped `copilot-instructions.md`).
 
 #### Phase 3b — Executable layer, emitted by default (opt-out)
 
@@ -78,7 +108,12 @@ own location — so no placeholder substitution and no header stripping):
 
 Alongside these, emit `harness/doctor.yml` from `templates/doctor.yml.template`,
 populated from the Gather-phase tooling answer (git always seeded) — part of the
-default scaffold, no new opt-in input.
+default scaffold, no new opt-in input. Then **scan the target's manifests** and
+append the tooling they imply per
+[knowledge-base/toolchain-detection.md](../../knowledge-base/toolchain-detection.md),
+using **append-if-`name`-missing** (existing entries win — never drop, reorder, or
+rewrite a `tools:` entry the target already declares). Every appended entry reuses
+`doctor.mjs`'s spawn-presence model, so this adds no `doctor.mjs` schema change.
 
 #### Phase 3c — CI workflow + local hook, emitted only on opt-in
 

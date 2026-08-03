@@ -8,7 +8,7 @@
 //   Exit 0  no manifest, no declared tools, or all required tools present
 //   Exit 1  one or more required tools missing
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -32,7 +32,11 @@ function findRepoRoot(startDir) {
 const ROOT = findRepoRoot(dirname(fileURLToPath(import.meta.url)));
 const MANIFEST_PATH = join(ROOT, 'harness', 'doctor.yml');
 
-if (!existsSync(MANIFEST_PATH)) {
+const argv = process.argv.slice(2);
+const SCAN = argv.includes('--scan');
+const WRITE = argv.includes('--write');
+
+if (!SCAN && !existsSync(MANIFEST_PATH)) {
   console.log('Doctor: (harness/doctor.yml not found — no declared tooling; treating as pass)');
   process.exit(0);
 }
@@ -89,6 +93,88 @@ function parseTools(text) {
 
   return tools.filter((t) => t.name && Array.isArray(t.check) && t.check.length > 0);
 }
+
+// --- opt-in manifest-scan writer (WI-02) ---------------------------------
+// Single source of truth mirrors knowledge-base/toolchain-detection.md.
+// Presence-only: each candidate is a spawn-presence `check` argv, never a
+// file-exists probe and never a version constraint.
+const DETECTORS = [
+  { manifest: /^package\.json$/,            tools: [
+      { name: 'node', check: ['node', '--version'], required: true },
+      { name: 'npm',  check: ['npm', '--version'],  required: false } ] },
+  { manifest: /^(pyproject\.toml|requirements\.txt)$/, tools: [
+      { name: 'python', check: ['python', '--version'], required: true } ] },
+  { manifest: /^go\.mod$/,                  tools: [
+      { name: 'go', check: ['go', 'version'], required: true } ] },
+  { manifest: /^Cargo\.toml$/,              tools: [
+      { name: 'cargo', check: ['cargo', '--version'], required: true } ] },
+  { manifest: /^(pom\.xml|build\.gradle)$/, tools: [
+      { name: 'java', check: ['java', '-version'], required: true } ] },
+  { manifest: /\.(csproj|sln)$/,            tools: [
+      { name: 'dotnet', check: ['dotnet', '--version'], required: true } ] },
+];
+
+function scanRepoTools(root) {
+  // Top-level, shallow, best-effort scan — fail-open on any fs error.
+  let names;
+  try { names = readdirSync(root); } catch { return []; }
+  const found = new Map(); // name -> entry (first detector wins; dedup by name)
+  for (const file of names) {
+    for (const d of DETECTORS) {
+      if (d.manifest.test(file)) {
+        for (const t of d.tools) if (!found.has(t.name)) found.set(t.name, t);
+      }
+    }
+  }
+  return [...found.values()];
+}
+
+function serializeTool(t) {
+  const lines = [`  - name: ${t.name}`,
+                 `    check: ${JSON.stringify(t.check)}`];
+  if (t.required !== undefined) lines.push(`    required: ${t.required}`);
+  return lines.join('\n');
+}
+
+if (SCAN) {
+  const existing = existsSync(MANIFEST_PATH)
+    ? parseTools(readFileSync(MANIFEST_PATH, 'utf8')) : [];
+  const have = new Set(existing.map((e) => e.name));
+  const candidates = scanRepoTools(ROOT).filter((t) => !have.has(t.name)); // append-if-name-missing
+
+  if (candidates.length === 0) {
+    console.log('SCAN:     no new toolchain entries detected (nothing to append).');
+    process.exit(0);
+  }
+  for (const t of candidates) console.log(`SCAN:     +${t.name} — ${JSON.stringify(t.check)}`);
+
+  if (!WRITE) {
+    console.log('SCAN:     preview only — re-run with --write to append to harness/doctor.yml.');
+    process.exit(0); // read-only preview
+  }
+
+  try {
+    const src = existsSync(MANIFEST_PATH) ? readFileSync(MANIFEST_PATH, 'utf8') : '';
+    const lines = src.replace(/\n$/, '').split(/\r?\n/);
+    if (lines.length === 1 && lines[0] === '') lines.pop(); // empty file -> no lines
+    let headerIdx = lines.findIndex((l) => /^tools:\s*$/.test(l));
+    if (headerIdx === -1) { lines.push('tools:'); headerIdx = lines.length - 1; }
+    // Splice before the next top-level key so entries always land inside the
+    // tools: block, never after a sibling key on a future multi-key doctor.yml.
+    let insertAt = lines.length;
+    for (let i = headerIdx + 1; i < lines.length; i++) {
+      if (/^\S/.test(lines[i])) { insertAt = i; break; }
+    }
+    lines.splice(insertAt, 0, ...candidates.flatMap((t) => serializeTool(t).split('\n')));
+    mkdirSync(dirname(MANIFEST_PATH), { recursive: true });
+    writeFileSync(MANIFEST_PATH, lines.join('\n') + '\n');
+    for (const t of candidates) console.log(`WROTE:    +${t.name} — harness/doctor.yml`);
+  } catch (err) {
+    console.error(`SCAN:     could not write harness/doctor.yml (${err.code || err.message}) — no changes made.`);
+  }
+  process.exit(0); // deliberate mutation is not a failure
+}
+// --- fall through to the existing read-only presence gate -----------------
 
 const manifestText = readFileSync(MANIFEST_PATH, 'utf8');
 const tools = parseTools(manifestText);

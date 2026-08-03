@@ -12,6 +12,12 @@
 // frontmatter `description:` value containing a colon). Riskier findings are
 // surfaced as SUGGEST: hints, never auto-applied. Default (no flag) is unchanged.
 //
+// Pass `--baseline` for a brownfield-adoption advisory run: the checks that
+// false-positive on a freshly-scaffolded pre-existing repo (frontmatter,
+// skill-name, applyTo, always-on, link, agents-budget, secret-scan) are
+// downgraded to non-gating WARN: notes so first-run noise does not block
+// adoption. Every other check still hard-fails. Default (no flag) is unchanged.
+//
 // (Exit 2 is used by the L4 agent-reengage wrapper harness-scripts/heal-harness.mjs, which
 //  wraps this validator and re-emits failures as structured repair directives.)
 
@@ -38,7 +44,24 @@ function findRepoRoot(startDir) {
 const ROOT = findRepoRoot(dirname(fileURLToPath(import.meta.url)));
 
 const failures = [];
-const fail = (check, detail) => failures.push(`FAIL: ${check} — ${detail}`);
+const warnings = [];
+
+// `--baseline` advisory mode: on a freshly-scaffolded pre-existing (brownfield)
+// repo, these whole-tree / pre-existing-file checks legitimately false-positive
+// on project-owned content the harness did not author. Under `--baseline` they
+// are downgraded to non-gating WARN: notes; every other check still hard-fails.
+// Without the flag the routing is a no-op, so normal runs are byte-identical.
+const BASELINE = process.argv.slice(2).includes('--baseline');
+const BASELINE_ADVISORY = new Set([
+  'frontmatter', 'skill-name', 'applyTo', 'always-on', 'link', 'agents-budget', 'secret-scan',
+]);
+const fail = (check, detail) => {
+  if (BASELINE && BASELINE_ADVISORY.has(check)) {
+    warnings.push(`WARN: ${check} — ${detail} (brownfield baseline — advisory, not gating)`);
+    return;
+  }
+  failures.push(`FAIL: ${check} — ${detail}`);
+};
 
 // `--fix` applies the safe subset of repairs; without it behavior is unchanged.
 const FIX = process.argv.slice(2).includes('--fix');
@@ -649,10 +672,57 @@ if (registeredScripts.size > 0) {
 }
 
 // ---------------------------------------------------------------------------
+// Check 17 — AGENTS.md managed-block content presence. Check 5 proves AGENTS.md
+// exists; this proves a *reconciled* brownfield merge actually landed its
+// harness-owned sections. Fail-open and dormant by default: a hand-authored
+// AGENTS.md with NO sentinels (like this repo's own) is fully allowed — the
+// check only activates once the scaffold-harness managed block is present.
+// When both sentinels are present, the four harness-owned section headings must
+// appear between them; an unbalanced/out-of-order sentinel pair is a malformed
+// (truncated) managed block and fails on its own. `local == CI` then proves the
+// merge is complete, closing the gap that Check 5's existence-only test leaves.
+// (Number is 17, not the vacant 9 slot — the source is numbered 1-8, 10-16.)
+// ---------------------------------------------------------------------------
+const BEGIN_SENTINEL = '<!-- HARNESS:BEGIN (managed by scaffold-harness — edits inside are overwritten) -->';
+const END_SENTINEL = '<!-- HARNESS:END -->';
+const HARNESS_SECTION_HEADINGS = [
+  'Session start protocol',
+  'Session end protocol',
+  'Repository conventions',
+  'Where deeper knowledge lives',
+];
+if (existsSync(agentsPath)) {
+  const agentsText = readFileSync(agentsPath, 'utf8');
+  const beginIdx = agentsText.indexOf(BEGIN_SENTINEL);
+  const endIdx = agentsText.indexOf(END_SENTINEL);
+  if (beginIdx === -1 && endIdx === -1) {
+    // No managed block — dormant (fail-open). A hand-authored AGENTS.md is fine.
+  } else if (beginIdx === -1 || endIdx === -1) {
+    const missing = beginIdx === -1 ? 'HARNESS:BEGIN' : 'HARNESS:END';
+    fail('managed-block', `AGENTS.md has one HARNESS sentinel but not the other (missing ${missing}) — the managed block is truncated`);
+  } else if (endIdx < beginIdx) {
+    fail('managed-block', 'AGENTS.md HARNESS:END appears before HARNESS:BEGIN — the managed block is malformed');
+  } else {
+    const block = agentsText.slice(beginIdx, endIdx);
+    for (const heading of HARNESS_SECTION_HEADINGS) {
+      if (!block.includes(heading)) {
+        fail('managed-block', `AGENTS.md managed block is missing the harness-owned "${heading}" section`);
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Report.
 // ---------------------------------------------------------------------------
 if (FIX && fixes.length > 0) {
   for (const f of fixes) console.log(`FIXED: description-quote — ${f}`);
+}
+
+// Brownfield-baseline advisories are recorded (printed) but never gate.
+if (BASELINE && warnings.length > 0) {
+  for (const line of warnings) console.error(line);
+  console.error(`\n${warnings.length} brownfield-baseline advisory warning(s) — not gating (exit 0 unless a non-advisory check failed).`);
 }
 
 if (failures.length > 0) {
