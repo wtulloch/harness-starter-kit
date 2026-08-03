@@ -14,6 +14,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PROMOTE_THRESHOLD, DECAY_WINDOW_DAYS, groupIncidents } from './signature.mjs';
 
 /**
  * Locate the repo root by walking upward from `startDir` looking for a `.git`
@@ -38,10 +39,6 @@ const rel = (p) => relative(ROOT, p).split('\\').join('/');
 const slug = (s) =>
   s.replace(/[^A-Za-z0-9 ]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 4)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join('') || 'RecurringSignature';
-
-// --- Tuning constants (single source of truth). ---
-const CORRECTION_STRUGGLE_THRESHOLD = 2; // >2 corrections on one issue = a struggle
-const PROMOTE_THRESHOLD = 3;             // N open occurrences of a signature -> promote to deterministic
 
 const logPath = join(ROOT, 'harness', 'incidents.jsonl');
 
@@ -78,27 +75,22 @@ if (incidents.length === 0) {
   process.exit(0);
 }
 
-// Group open incidents by detection_signal.type + root_cause signature.
-// Keep one representative incident per group so a promoted signature can seed
-// a validator-check stub from its prevention_rule / root_cause.
-const groups = new Map();
-for (const i of open) {
-  const type = (i.detection_signal && i.detection_signal.type) || 'unknown';
-  const cause = (i.root_cause || '').trim().toLowerCase().slice(0, 80);
-  const key = `${type} :: ${cause}`;
-  const g = groups.get(key);
-  if (g) g.n += 1;
-  else groups.set(key, { n: 1, sample: i });
-}
+// Group open incidents by detection_signal.type + a root_cause signature, so
+// prose drift, absolute paths, and ids no longer split one recurrence into
+// several, and occurrences outside the decay window stop counting. Each group
+// keeps one representative incident so a promoted signature can seed a
+// validator-check stub from its prevention_rule / root_cause.
+const groups = groupIncidents(open, incidents);
 
-const atThreshold = [...groups.entries()].filter(([, g]) => g.n >= PROMOTE_THRESHOLD);
+const atThreshold = [...groups.values()].filter((g) => g.n >= PROMOTE_THRESHOLD);
 
 process.stdout.write(
   `Backpressure: ${open.length} open / ${incidents.length} total incident(s); ` +
-    `${atThreshold.length} signature(s) at promote threshold (>=${PROMOTE_THRESHOLD}).\n`,
+    `${atThreshold.length} signature(s) at promote threshold (>=${PROMOTE_THRESHOLD}); ` +
+    `occurrences older than ${DECAY_WINDOW_DAYS}d do not count.\n`,
 );
 if (atThreshold.length > 0) {
-  for (const [key, { n, sample }] of atThreshold) {
+  for (const { n, sample, label: key } of atThreshold) {
     const rule = (sample.prevention_rule || sample.root_cause || key).trim();
     const fnName = `check${slug(rule)}`;
     process.stdout.write(`  PROMOTE: "${key}" x${n} — harden deterministically (add a validator check).\n`);

@@ -11,6 +11,7 @@ import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { PROMOTE_THRESHOLD, groupIncidents } from './signature.mjs';
 
 /**
  * Locate the repo root by walking upward from `startDir` looking for a `.git`
@@ -147,14 +148,8 @@ if (incidentsRaw === null) {
   const open = incidents.filter(
     (i) => i.status !== 'remediated' && i.status !== 'wont-fix' && !resolved.has(i.id),
   );
-  const groups = new Map();
-  for (const i of open) {
-    const type = (i.detection_signal && i.detection_signal.type) || 'unknown';
-    const cause = (i.root_cause || '').trim().toLowerCase().slice(0, 80);
-    const key = `${type} :: ${cause}`;
-    groups.set(key, (groups.get(key) || 0) + 1);
-  }
-  const atThreshold = [...groups.values()].filter((n) => n >= 3).length;
+  const groups = groupIncidents(open, incidents);
+  const atThreshold = [...groups.values()].filter((g) => g.n >= PROMOTE_THRESHOLD).length;
   if (incidents.length === 0) {
     line('Health:   (no incidents)');
   } else {

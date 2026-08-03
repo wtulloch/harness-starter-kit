@@ -11,7 +11,8 @@
 {{!   symptom            what was observed }}
 {{!   detection_signal   { type, evidence, threshold_hit } }}
 {{!                      type ∈ repeated-correction | tool-failure | edit-thrash | }}
-{{!                             context-saturation | tripwire | validator-fail | backtrack }}
+{{!                             context-saturation | tripwire | validator-fail | }}
+{{!                             backtrack | guard-trip }}
 {{!   trigger            proximate cause }}
 {{!   root_cause         underlying cause (5 Whys) }}
 {{!   remediation        { layer, kind, action, artifact } }}

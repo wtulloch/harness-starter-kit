@@ -12,6 +12,7 @@
 //   node harness-scripts/harness.mjs session-end
 //   node harness-scripts/harness.mjs backpressure-stats
 //   node harness-scripts/harness.mjs doctor
+//   node harness-scripts/harness.mjs guard
 //
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -25,6 +26,7 @@ const VERBS = {
   'session-end': 'session-end.mjs',
   'backpressure-stats': 'backpressure-stats.mjs',
   doctor: 'doctor.mjs',
+  guard: 'guard.mjs',
 };
 
 const [verb, ...rest] = process.argv.slice(2);

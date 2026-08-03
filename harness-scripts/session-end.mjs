@@ -2,16 +2,25 @@
 // session-end.mjs — Layer 3 read-only session-end checklist + backpressure trigger.
 //
 // Executes the AGENTS.md Session-end protocol deterministically: prints the wrap-up
-// checklist (PROGRESS.md, features.yml, state.md) and, crucially, reads
-// harness/incidents.jsonl to decide whether a recurring signature has reached the
-// promote threshold — the deterministic trigger that tells the agent to run the
-// review-session skill before stopping. Read-only: never writes. Fail-open: a
-// missing/empty log degrades to a labeled note and the script still exits 0. Node
-// built-ins only — no npm install.
+// checklist (PROGRESS.md, features.yml, state.md) and, crucially, decides whether
+// to tell the agent to run the review-session skill before stopping. Two triggers,
+// either of which fires it:
+//
+//   1. a guard trip recorded in .copilot-tracking/guards/state.json (deterministic —
+//      one sensor firing outweighs any number of prose incidents), or
+//   2. a recurring signature in harness/incidents.jsonl at the promote threshold.
+//
+// Trigger 1 exists because trigger 2 alone deadlocks: the only writer of incidents
+// is an agent voluntarily running the skill, so the threshold depends on the very
+// judgment it replaces. When guard state cannot be read the banner says so out
+// loud and falls back to trigger 2 — a silent fallback would hide the deadlock's
+// return. Read-only: never writes. Fail-open: a missing/empty input degrades to a
+// labeled note and the script still exits 0. Node built-ins only — no npm install.
 
 import { readFileSync, existsSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PROMOTE_THRESHOLD, groupIncidents } from './signature.mjs';
 
 /**
  * Locate the repo root by walking upward from `startDir` looking for a `.git`
@@ -32,7 +41,14 @@ function findRepoRoot(startDir) {
 const ROOT = findRepoRoot(dirname(fileURLToPath(import.meta.url)));
 const rel = (p) => relative(ROOT, p).split('\\').join('/');
 
-const PROMOTE_THRESHOLD = 3; // N open occurrences of a signature -> promote to deterministic
+// Fail-open: a scaffold predating the guard layer keeps its threshold-only behavior.
+let guard = null;
+try {
+  const path = resolve(dirname(fileURLToPath(import.meta.url)), 'guard.mjs');
+  if (existsSync(path)) guard = await import('./guard.mjs');
+} catch {
+  guard = null;
+}
 
 const out = [];
 const line = (s = '') => out.push(s);
@@ -44,9 +60,33 @@ line('Wrap-up:');
 line('  1. Update PROGRESS.md (move done items to Done, refresh Next steps).');
 line('  2. Update features.yml statuses + history entries.');
 line('  3. If a milestone was reached, append to the active harness/state/<slug>/state.md.');
-line('  4. Green-gate: run `node harness-scripts/harness.mjs heal` — apply any directives, re-run until healthy.');
+line('  4. Green-gate: run `node harness-scripts/harness.mjs heal` — apply any directives, re-run at most 3 times;');
+line('     on a `GUARD: heal-loop-cap` line, stop and escalate to the human instead.');
 
-// --- Backpressure trigger from harness/incidents.jsonl (read-only, fail-open). ---
+// --- Trigger 1: guard trips from .copilot-tracking/guards/state.json (read-only). ---
+const statePath = join(ROOT, '.copilot-tracking', 'guards', 'state.json');
+let trips = { available: false, path: statePath, tripped: [] };
+if (guard && guard.readGuardTrips) {
+  try { trips = guard.readGuardTrips(ROOT); } catch { /* fail-open: keep the unavailable default */ }
+}
+
+if (!trips.available) {
+  line(`Guards:   (${rel(trips.path)} unavailable — guard trips cannot be read this session;`);
+  line('           falling back to the incident-threshold trigger below only.)');
+} else if (trips.tripped.length > 0) {
+  line(`Guards:   ${trips.tripped.length} guard trip(s) recorded.`);
+  line('  ACTION: run the review-session skill before stopping — a deterministic guard');
+  line('          tripped, which counts on its own regardless of the incident threshold:');
+  for (const t of trips.tripped) {
+    line(`    - ${t.id} (${t.mode}) at ${t.attempts}/${t.max} run(s), signature ${t.signature ?? 'n/a'}`);
+  }
+  line('  Review each record below, then append it to harness/incidents.jsonl yourself:');
+  for (const t of trips.tripped) line('    GUARD_INCIDENT: ' + JSON.stringify(guard.incidentRecord(t)));
+} else {
+  line('Guards:   (no guard trips recorded)');
+}
+
+// --- Trigger 2: recurrence threshold in harness/incidents.jsonl (read-only, fail-open). ---
 const logPath = join(ROOT, 'harness', 'incidents.jsonl');
 const raw = existsSync(logPath) ? readFileSync(logPath, 'utf8') : null;
 if (raw === null) {
@@ -64,19 +104,13 @@ if (raw === null) {
   const open = incidents.filter(
     (i) => i.status !== 'remediated' && i.status !== 'wont-fix' && !resolved.has(i.id),
   );
-  const groups = new Map();
-  for (const i of open) {
-    const type = (i.detection_signal && i.detection_signal.type) || 'unknown';
-    const cause = (i.root_cause || '').trim().toLowerCase().slice(0, 80);
-    const key = `${type} :: ${cause}`;
-    groups.set(key, (groups.get(key) || 0) + 1);
-  }
-  const atThreshold = [...groups.entries()].filter(([, n]) => n >= PROMOTE_THRESHOLD);
+  const groups = groupIncidents(open, incidents);
+  const atThreshold = [...groups.values()].filter((g) => g.n >= PROMOTE_THRESHOLD);
   if (atThreshold.length > 0) {
     line(`Health:   ${open.length} open incident(s); ${atThreshold.length} signature(s) at promote threshold.`);
     line('  ACTION: run the review-session skill before stopping — a recurring signature');
     line('          has reached the promote threshold and should be hardened deterministically:');
-    for (const [key, n] of atThreshold) line(`    - "${key}" x${n}`);
+    for (const { label, n } of atThreshold) line(`    - "${label}" x${n}`);
   } else if (open.length > 0) {
     line(`Health:   ${open.length} open incident(s); none at promote threshold — no review-session needed.`);
   } else {

@@ -71,10 +71,14 @@ Announce the recovered state (current focus + next step) before proceeding.
 2. Update `features.yml` (repo root) statuses + history entries.
 3. If the active initiative opted into a `state.md` and a milestone was reached,
    append to it. Skip for two-tier initiatives.
-4. Green-gate (if the optional executable layer is present): run
+4. If the session hit repeated errors, retries, or thrash, capture the struggle to
+   `harness/incidents.jsonl` (the review-session skill, when present) and escalate
+   it to a deterministic fix.
+5. Green-gate (if the optional executable layer is present): run
    `node harness-scripts/harness.mjs heal` (or the raw `node harness-scripts/heal-harness.mjs`);
-   if it exits 2, apply each emitted repair directive and re-run until it reports
-   the harness healthy. Fail-open: skip when Node is absent.
+   if it exits 2, apply each emitted repair directive and re-run — at most 3 times.
+   If a `GUARD: heal-loop-cap` line appears, stop re-running and escalate to the
+   human, naming the unsatisfiable directive. Fail-open: skip when Node is absent.
 
 ## Security notes
 

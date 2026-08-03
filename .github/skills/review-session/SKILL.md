@@ -1,6 +1,6 @@
 ---
 name: review-session
-description: "Review an agent coding session for backpressure (repeated errors, retries, thrash), capture each struggle to the committed incident log, and escalate to a deterministic-first remediation. USE FOR: after a rough session; when the same correction repeats; when tool calls keep failing or edits thrash; capturing a runtime incident; deciding whether to harden the validator. DO NOT USE FOR: auditing harness file health/leanness (use maintain-harness) or scaffolding a new harness (use scaffold-harness)."
+description: "Detect backpressure in an agent coding session — while it is happening or at session end — capture each struggle to the committed incident log, and escalate to a deterministic-first remediation. USE FOR: mid-session when the same error or correction keeps repeating, the same fix is retried, edits thrash one file, tool calls keep failing, or you are going in circles; when a loop guard trips or heal keeps emitting the same repair directives; when the same validator check keeps failing across sessions; when context saturates and mistakes rise; after a rough session; capturing a runtime incident; deciding whether to harden the validator with a new check. DO NOT USE FOR: auditing harness file health/leanness (use maintain-harness) or scaffolding a new harness (use scaffold-harness)."
 ---
 
 # Review Session (Backpressure → Capture → Escalate)
@@ -12,10 +12,13 @@ maintain-harness §7 rule "encode every mistake as a rule."
 
 ## When to use
 
-- A session hit repeated errors, retries, or backtracking.
-- The same correction was applied more than twice on one issue.
-- Tool calls kept failing (file-not-found, edit thrash) or context saturated.
-- On session-end, when any struggle signal fired.
+- **Mid-session**, as it happens: the same error or correction keeps repeating, the
+  same fix is retried, edits thrash one file, tool calls keep failing, or you are
+  going in circles.
+- A loop guard trips, or `heal` keeps re-emitting the same repair directives.
+- The same validator check keeps failing across sessions, or context saturates and
+  mistakes rise.
+- **At session-end**, when any struggle signal fired during the session.
 
 ## Struggle signals (what "struggling" means)
 
@@ -29,7 +32,7 @@ Countable, thresholded — look for these when reviewing a session:
 | Rising mistakes as context fills | `context-saturation` | large token use + late errors |
 | Guardrail/tripwire halt | `tripwire` | any hard stop |
 | Validator `FAIL:` recurrence | `validator-fail` | same check across sessions |
-| Consecutive blocks / abort | — | **8 consecutive → circuit-breaker** |
+| Loop guard tripped | `guard-trip` | **3 non-converging gate runs → trip** |
 
 ## Procedure
 
@@ -49,6 +52,10 @@ Countable, thresholded — look for these when reviewing a session:
 - Append **one JSON line per distinct struggle** to `harness/incidents.jsonl` using
   the schema below. Appending to the log is low-risk and may be done automatically.
 - Do not fabricate incidents; capture only what actually happened.
+- A tripped loop guard already prints a fully populated record on a
+  `GUARD_INCIDENT:` line (from `harness-scripts/guard.mjs`, surfaced by
+  `harness-scripts/session-end.mjs`). Review it, replace the placeholder
+  `root_cause`, and append it — no script writes to the ledger.
 
 Incident schema (JSON keys, one object per line):
 
@@ -95,6 +102,22 @@ judgment → R2; one-off → R1. A heuristic that **keeps being violated** → p
 R3 **and delete the now-redundant instruction**. Prefer the earliest/cheapest catch;
 do not over-instrument a single incident.
 
+**R2 — migrate the `prevention_rule` to a durable home.** The session-start banner
+prints prevention rules from **open** incidents only, capped at 3, so a rule that
+stays in the ledger goes silent the moment it is remediated. Choosing R2 therefore
+means *moving* the rule, not just recording it: write it into the `applyTo`-scoped
+instruction file that governs the files where it applies, then close the incident.
+
+| Rule is about | Destination |
+|---------------|-------------|
+| Scripts under `harness-scripts/` or `tests/` | .github/instructions/executable-layer.instructions.md |
+| `PROGRESS.md`, `features.yml`, `project-notes/` | .github/instructions/tracking-files.instructions.md |
+| Instruction/skill/prompt/agent authoring | .github/instructions/customization-authoring.instructions.md |
+
+If no scoped file governs those paths yet, create one rather than widening an
+existing file's `applyTo`. Keep `prevention_rule` in the incident record as the
+historical trace; the instruction file is what actually loads next session.
+
 ### Step E — Remediate + close the loop
 
 - Propose the **smallest** change that prevents recurrence.
@@ -104,7 +127,8 @@ do not over-instrument a single incident.
 - When the remediation is **deterministic**, add a `// ---- Check N ----` block to
   `harness-scripts/validate-harness.mjs`. The executable layer has no template twins — the
   live script is the single source the generator copies verbatim, so there is
-  nothing to mirror.
+  nothing to mirror. Step-by-step recipe (check contract, repair directive, test):
+  [writing a validator check](references/writing-a-validator-check.md).
 - Append a resolution line closing the incident:
   `{"type":"resolution","resolves":"<id>","files_modified":[...],"date":"YYYY-MM-DD"}`
   and set the incident `status` to `remediated`.

@@ -188,14 +188,14 @@ for (const file of skillFiles) {
 }
 
 // ---------------------------------------------------------------------------
-// Check 3 — flag a bare `applyTo: "**"` (loads on every request; likely a mistake).
-// applyTo is optional (description-triggered files omit it); only the bare
-// catch-all glob is flagged.
+// Check 3 — flag a catch-all `applyTo` (loads on every request; likely a mistake).
+// applyTo is optional (description-triggered files omit it); only the catch-all
+// glob in either spelling — `**` or `**/*` — is flagged.
 // ---------------------------------------------------------------------------
 for (const file of customizationFiles.filter((p) => /\.instructions\.md$/.test(p))) {
   const { keys } = parseFrontmatter(readFileSync(file, 'utf8'));
-  if (keys && keys.applyTo && keys.applyTo.trim() === '**') {
-    fail('applyTo', `${rel(file)}: bare \`applyTo: "**"\` loads on every request — scope it`);
+  if (keys && keys.applyTo && /^\*\*(?:\/\*)?$/.test(keys.applyTo.trim())) {
+    fail('applyTo', `${rel(file)}: bare \`applyTo: "${keys.applyTo.trim()}"\` loads on every request — scope it`);
   }
 }
 
@@ -348,20 +348,76 @@ for (const stateFile of walk(join(ROOT, 'harness', 'state')).filter((p) => p.end
 }
 
 // ---------------------------------------------------------------------------
-// Check 8 — incident log (harness/incidents.jsonl) is well-formed JSONL.
-// Optional artifact: absent or empty passes silently (fail-open). When present,
-// every non-blank line must parse as JSON so the self-healing loop's log can
-// never silently corrupt.
+// Check 8 — incident log (harness/incidents.jsonl) is well-formed JSONL AND
+// every record conforms to the schema documented in
+// .github/skills/review-session/SKILL.md and templates/incidents.jsonl.template.
+// Optional artifact: absent or empty passes silently (fail-open). Field-level
+// validation exists so a malformed incident cannot silently poison aggregation
+// (backpressure-stats.mjs groups on detection_signal.type + root_cause and
+// escalates on remediation.layer — a record missing those is invisible, not
+// loud). Only the keys the aggregators actually consume are required; the
+// documented minimal variant's optional keys are enum-checked when present.
+// Per PD-01 signatures are computed on the fly, so no signature field exists.
 // ---------------------------------------------------------------------------
+const DETECTION_TYPES = new Set([
+  'repeated-correction', 'tool-failure', 'edit-thrash', 'context-saturation',
+  'tripwire', 'validator-fail', 'backtrack', 'guard-trip',
+]);
+const REMEDIATION_LAYERS = new Set(['probabilistic', 'heuristic', 'deterministic']);
+const INCIDENT_STATUSES = new Set(['open', 'remediated', 'wont-fix']);
+const INCIDENT_SEVERITIES = new Set(['low', 'medium', 'high']);
+const nonEmptyString = (v) => typeof v === 'string' && v.trim() !== '';
+
 const incidentsPath = join(ROOT, 'harness', 'incidents.jsonl');
 if (existsSync(incidentsPath)) {
   const incidentLines = readFileSync(incidentsPath, 'utf8').split(/\r?\n/);
   incidentLines.forEach((line, i) => {
     if (!line.trim()) return;
+    const where = `harness/incidents.jsonl: line ${i + 1}`;
+    let record;
     try {
-      JSON.parse(line);
+      record = JSON.parse(line);
     } catch {
-      fail('incident-log', `harness/incidents.jsonl: line ${i + 1} is not valid JSON`);
+      fail('incident-log', `${where} is not valid JSON`);
+      return;
+    }
+    if (record === null || typeof record !== 'object' || Array.isArray(record)) {
+      fail('incident-log', `${where} is not a JSON object`);
+      return;
+    }
+    if (record.type === 'resolution') {
+      if (!nonEmptyString(record.resolves)) {
+        fail('incident-log', `${where}: resolution line is missing a \`resolves\` id`);
+      }
+      return;
+    }
+    if (!nonEmptyString(record.id)) {
+      fail('incident-log', `${where} is missing \`id\``);
+    }
+    const detection = record.detection_signal;
+    if (!detection || typeof detection !== 'object' || !nonEmptyString(detection.type)) {
+      fail('incident-log', `${where} is missing \`detection_signal.type\``);
+    } else if (!DETECTION_TYPES.has(detection.type)) {
+      fail('incident-log', `${where} has undeclared \`detection_signal.type\` \`${detection.type}\``);
+    }
+    const remediation = record.remediation;
+    if (!remediation || typeof remediation !== 'object') {
+      fail('incident-log', `${where} is missing \`remediation\``);
+    } else {
+      if (!nonEmptyString(remediation.layer)) {
+        fail('incident-log', `${where} is missing \`remediation.layer\``);
+      } else if (!REMEDIATION_LAYERS.has(remediation.layer)) {
+        fail('incident-log', `${where} has undeclared \`remediation.layer\` \`${remediation.layer}\``);
+      }
+      if (!nonEmptyString(remediation.kind)) {
+        fail('incident-log', `${where} is missing \`remediation.kind\``);
+      }
+    }
+    if (record.status !== undefined && !INCIDENT_STATUSES.has(record.status)) {
+      fail('incident-log', `${where} has undeclared \`status\` \`${record.status}\``);
+    }
+    if (record.severity !== undefined && !INCIDENT_SEVERITIES.has(record.severity)) {
+      fail('incident-log', `${where} has undeclared \`severity\` \`${record.severity}\``);
     }
   });
 }
@@ -411,11 +467,28 @@ for (const file of walk(ROOT)) {
 // ---------------------------------------------------------------------------
 // Check 13 — .github/hooks/hooks.json (optional, opt-in agent-hooks layer), if
 // present, is well-formed JSON with a numeric `version` and a `hooks` object,
-// and every `*.mjs` path referenced in a command/bash/powershell/
-// command string actually exists. Consistency-only (D-14 style): the file is
-// optional and its absence is never a failure — this is not a hooks-schema
-// validator.
+// every `*.mjs` path referenced in a command/bash/powershell/
+// command string actually exists, and every event key names a real hook event.
+// Consistency-only (D-14 style): the file is optional and its absence is never a
+// failure — this is not a hooks-schema validator.
+//
+// The event allow-list enumerates both spelling families explicitly and matches
+// them exactly (no case-folding): GitHub Copilot's lowerCamelCase names (D-20
+// verified `sessionStart`, `preToolUse`, `agentStop`, `subagentStop` against the
+// hooks reference) and the PascalCase equivalents a different vendor uses.
+// `agentStop`/`stop` (and `AgentStop`/`Stop`) are the two spellings of the same
+// "agent finished" event. Case-folding was dropped because it also passed
+// non-working spellings like `agentstop` — the exact silent-never-fires class
+// this check exists to catch (D-33 refines D-29).
 // ---------------------------------------------------------------------------
+const HOOK_EVENTS = new Set([
+  // GitHub Copilot lowerCamelCase (D-20 verified)
+  'sessionStart', 'userPromptSubmit', 'preToolUse', 'postToolUse',
+  'preCompact', 'subagentStart', 'subagentStop', 'agentStop', 'stop',
+  // PascalCase equivalents (a different vendor)
+  'SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse',
+  'PreCompact', 'SubagentStart', 'SubagentStop', 'AgentStop', 'Stop',
+]);
 const hooksConfigPath = join(ROOT, '.github', 'hooks', 'hooks.json');
 if (existsSync(hooksConfigPath)) {
   const raw = readFileSync(hooksConfigPath, 'utf8');
@@ -432,6 +505,11 @@ if (existsSync(hooksConfigPath)) {
     if (!parsed.hooks || typeof parsed.hooks !== 'object') {
       fail('hooks-config', '.github/hooks/hooks.json is missing a "hooks" object');
     } else {
+      for (const event of Object.keys(parsed.hooks)) {
+        if (!HOOK_EVENTS.has(event)) {
+          fail('hooks-config', `.github/hooks/hooks.json declares unknown hook event "${event}"`);
+        }
+      }
       const scriptRefs = new Set();
       for (const m of raw.matchAll(/[\w.-]+(?:\/[\w.-]+)*\.mjs/g)) scriptRefs.add(m[0]);
       for (const ref of scriptRefs) {
@@ -479,6 +557,93 @@ if (existsSync(doctorYamlPath)) {
       if (requiredMatch && !['true', 'false'].includes(requiredMatch[1])) {
         fail('doctor-yaml', `harness/doctor.yml: tool ${name || '(unnamed)'} has a non-boolean \`required\` value`);
       }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Check 15 — harness/guards.yml (optional backpressure-guard manifest), if
+// present, has a `guards:` list where every entry declares a non-empty `id`,
+// every `mode` value (per-guard or under `defaults:`) is one of the four
+// Kubernetes-PSA-style modes, and every `window` is >= 2 (a window of 1 trips on
+// the first run before the edit witness can accrue). Mirrors Check 14:
+// consistency-only, absence is never a failure. A typo'd mode silently disables a
+// guard at runtime, so the gate has to see it — harness-scripts/guard.mjs is what
+// actually enforces the mode ceiling.
+// ---------------------------------------------------------------------------
+const GUARD_MODES = new Set(['off', 'audit', 'warn', 'enforce']);
+const guardsYamlPath = join(ROOT, 'harness', 'guards.yml');
+if (existsSync(guardsYamlPath)) {
+  const gLines = readFileSync(guardsYamlPath, 'utf8').split(/\r?\n/);
+  for (const line of gLines) {
+    const m = /^\s*(?:-\s*)?mode:\s*(\S+)\s*$/.exec(line);
+    if (m && !GUARD_MODES.has(m[1])) {
+      fail('guards-yaml', `harness/guards.yml: unknown \`mode\` value \`${m[1]}\` (expected off|audit|warn|enforce)`);
+    }
+    const w = /^\s*(?:-\s*)?window:\s*(\d+)\s*$/.exec(line);
+    if (w && Number(w[1]) < 2) {
+      fail('guards-yaml', `harness/guards.yml: \`window: ${w[1]}\` is too small (need >= 2 so the edit witness can accrue)`);
+    }
+  }
+  const guardsIdx = gLines.findIndex((l) => /^guards:\s*$/.test(l));
+  if (guardsIdx === -1) {
+    fail('guards-yaml', 'harness/guards.yml: missing top-level `guards:` key');
+  } else {
+    const blocks = [];
+    let cur = null;
+    for (const line of gLines.slice(guardsIdx + 1)) {
+      if (/^  - /.test(line)) { if (cur) blocks.push(cur); cur = [line]; }
+      else if (cur && /^\s/.test(line)) cur.push(line);
+      else if (/^\S/.test(line)) break;
+    }
+    if (cur) blocks.push(cur);
+    for (const block of blocks) {
+      if (!/(?:^|\n)\s*(?:-\s*)?id:\s*\S/.test(block.join('\n'))) {
+        fail('guards-yaml', 'harness/guards.yml: a guards entry is missing `id`');
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Check 16 — harness/state/**/state.md artifact registries are internally
+// consistent, and no committed executable-layer script silently escapes the
+// registry. Both parts are fail-open — no state.md, or a placeholder-only
+// registry, is never a failure:
+//   (a) structural: within one registry no `- path:` repeats and every entry
+//       carries a `type:`, so a half-written row can't masquerade as registered.
+//   (b) reverse coverage (opt-in by precedent): once ANY registry lists a real
+//       harness-scripts/*.mjs path, every committed harness-scripts/*.mjs must
+//       appear in some registry. This is the one direction Check 10 does not
+//       cover — it proves listed→exists; this proves shipped→listed, the class
+//       that let F-029's doctor.mjs/doctor.yml go unregistered across two
+//       initiatives. A repo that never registers scripts stays dormant. See D-33.
+// ---------------------------------------------------------------------------
+const registeredScripts = new Set();
+for (const stateFile of walk(join(ROOT, 'harness', 'state')).filter((p) => p.endsWith('state.md'))) {
+  const owner = rel(stateFile);
+  const sLines = readFileSync(stateFile, 'utf8').split(/\r?\n/);
+  const seenPaths = new Set();
+  for (let i = 0; i < sLines.length; i++) {
+    const pm = /^\s*-\s*path:\s*["']?([^"'\r\n]+?)["']?\s*$/.exec(sLines[i]);
+    if (!pm) continue;
+    const p = pm[1].trim();
+    if (p.includes('{{')) continue; // placeholder registry — skip
+    if (seenPaths.has(p)) fail('state-artifact-registry', `${owner}: artifact "${p}" is registered more than once`);
+    seenPaths.add(p);
+    let hasType = false;
+    for (let j = i + 1; j < sLines.length; j++) {
+      if (/^\s*-\s*path:/.test(sLines[j]) || /^\S/.test(sLines[j])) break;
+      if (/^\s*type:\s*\S/.test(sLines[j])) { hasType = true; break; }
+    }
+    if (!hasType) fail('state-artifact-registry', `${owner}: artifact "${p}" has no \`type:\``);
+    if (/^harness-scripts\/[\w.-]+\.mjs$/.test(p)) registeredScripts.add(p);
+  }
+}
+if (registeredScripts.size > 0) {
+  for (const shipped of walk(join(ROOT, 'harness-scripts')).map(rel).filter((p) => /^harness-scripts\/[\w.-]+\.mjs$/.test(p))) {
+    if (!registeredScripts.has(shipped)) {
+      fail('state-artifact-registry', `${shipped} ships in harness-scripts/ but is registered in no state.md artifact registry`);
     }
   }
 }
