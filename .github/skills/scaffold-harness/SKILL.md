@@ -110,13 +110,19 @@ them is safe even when no runtime is detected. They are **repo-agnostic** (they
 discover the tree from their own location), so emit each as a **verbatim copy of
 the live source file** — no placeholder substitution, no header stripping:
 
+- `harness-scripts/signature.mjs` ← copy `harness-scripts/signature.mjs` (**not optional within this set**: an unconditional `import` of session-start, session-end, and backpressure-stats — omit it and all three die with `ERR_MODULE_NOT_FOUND` rather than failing open)
 - `harness-scripts/validate-harness.mjs` ← copy `harness-scripts/validate-harness.mjs`
 - `harness-scripts/heal-harness.mjs` ← copy `harness-scripts/heal-harness.mjs` (Layer 4 agent-reengage wrapper; exit 2 + structured repair directives)
 - `harness-scripts/session-start.mjs` ← copy `harness-scripts/session-start.mjs`
 - `harness-scripts/session-end.mjs` ← copy `harness-scripts/session-end.mjs` (Layer 3 read-only session-end checklist; triggers review-session at the promote threshold)
 - `harness-scripts/backpressure-stats.mjs` ← copy `harness-scripts/backpressure-stats.mjs`
+- `harness-scripts/guard.mjs` ← copy `harness-scripts/guard.mjs` (loop-guard engine reading `harness/guards.yml`; backs the `heal-loop-cap` the emitted AGENTS.md promises)
 - `harness-scripts/harness.mjs` ← copy `harness-scripts/harness.mjs` (command-verb dispatcher fronting the scripts above)
 - `harness-scripts/doctor.mjs` ← copy `harness-scripts/doctor.mjs` (hard-gated pre-flight tool/dependency check, reading `harness/doctor.yml`)
+
+Emit the whole set or none of it. `harness.mjs` advertises every verb, and
+`signature.mjs` is a hard dependency of three of the scripts — a partial emit
+produces a target that crashes on invocation instead of degrading quietly.
 
 ### 2b2. Emit the default pre-flight manifest
 
@@ -128,7 +134,7 @@ default scaffold, same as the two-tier tracking default in Section 3.
 
 Then **scan the target's manifests** and append the tooling they imply, guided by
 the single-source mapping table in
-[knowledge-base/toolchain-detection.md](../../../knowledge-base/toolchain-detection.md)
+[references/toolchain-detection.md](references/toolchain-detection.md)
 (manifest → `tools:` entries for JS/TS, Python, Go, Rust, Java, .NET — do not
 inline that table here). Merge rule: **append-if-`name`-missing** — append only
 entries whose `name` is not already in the `tools:` sequence; existing entries
@@ -136,6 +142,16 @@ always win (never drop, reorder, or rewrite a `tools:` entry the target already
 declares), so re-running adoption is idempotent. Every appended entry reuses
 `doctor.mjs`'s existing spawn-presence model (`name` + `check` argv + optional
 `required`); this adds no new probe type and no `doctor.mjs` schema change.
+
+### 2b3. Emit the default guard manifest
+
+Also emit `harness/guards.yml` from `templates/guards.yml.template` — same
+default-on posture as `doctor.yml`, no separate opt-in. This is what backs the
+"re-run heal at most 3 times, then escalate" rule the emitted `AGENTS.md` states:
+without the manifest, `guard.mjs` degrades to "no guard" and that rule is a
+promise nothing enforces. Emit the template as-is — `heal-loop-cap` at `enforce`,
+`no-progress` silent at `audit` — and let the target promote `no-progress` later
+once it has its own trip data.
 
 ### 2c. Emit the CI workflow + local hook only on opt-in
 

@@ -95,7 +95,7 @@ function parseTools(text) {
 }
 
 // --- opt-in manifest-scan writer (WI-02) ---------------------------------
-// Single source of truth mirrors knowledge-base/toolchain-detection.md.
+// Single source of truth mirrors .github/skills/scaffold-harness/references/toolchain-detection.md.
 // Presence-only: each candidate is a spawn-presence `check` argv, never a
 // file-exists probe and never a version constraint.
 const DETECTORS = [

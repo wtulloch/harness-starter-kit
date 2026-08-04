@@ -1,0 +1,37 @@
+{{! Generator template: emit to `harness/guards.yml` in the target repo, }}
+{{! stripping these leading `{{! ... }}` header lines. Declares the loop guards }}
+{{! read by harness-scripts/guard.mjs (node harness-scripts/harness.mjs guard) and }}
+{{! consulted by harness-scripts/heal-harness.mjs. Absence of this file is never a }}
+{{! failure — it degrades to "no guard", i.e. pre-guard behavior. }}
+#
+# Modes are Kubernetes Pod Security Admission's: off | audit | warn | enforce.
+# Promotion path — audit -> warn -> enforce, one committed edit at a time, never
+# an implicit runtime change:
+#   audit    evaluates and records silently; collect real trip data here first
+#   warn     one loud line, still non-blocking; the ceiling for any heuristic
+#   enforce  blocks with exit 2; proof-grade signals only, and the id must also
+#            appear in ENFORCE_ELIGIBLE in harness-scripts/guard.mjs, which clamps
+#            anything else back to `warn` rather than honoring the declaration
+# Demotion needs no ceremony: HARNESS_GUARD_MODE / HARNESS_GUARD_OFF override for
+# one session and are recorded and echoed on every later run.
+version: 1
+defaults:
+  window: 3
+  mode: audit
+guards:
+  # Proof-grade: the harness authored the loop, so an identical repair-directive
+  # set across the cap is conclusive rather than suggestive. This is what backs
+  # the "re-run heal at most 3 times" rule in AGENTS.md — without it that rule is
+  # a promise nothing enforces.
+  - id: heal-loop-cap
+    mode: enforce
+    max_attempts: 3
+  # Ships silent at `audit`: proof-grade only in combination with the edit
+  # witness, and unproven until you have real trip data of your own. Promote to
+  # `warn` once it has earned it. `requires_edit_witness` documents an invariant
+  # of the evaluator, not a toggle: the witness is unconditional, because without
+  # it merely re-running the gate to read its output would count as a stalled loop.
+  - id: no-progress
+    mode: audit
+    window: 3
+    requires_edit_witness: true

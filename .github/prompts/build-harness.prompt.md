@@ -44,7 +44,7 @@ optional). Seed answers from any existing README / package manifest first. When
 seeding from manifests, also map each detected manifest (package.json,
 pyproject.toml/requirements.txt, go.mod, Cargo.toml, pom.xml/build.gradle,
 *.csproj/*.sln) to the `doctor.yml` `tools:` entries it implies via
-[knowledge-base/toolchain-detection.md](../../knowledge-base/toolchain-detection.md),
+[scaffold-harness/references/toolchain-detection.md](../skills/scaffold-harness/references/toolchain-detection.md),
 so the Phase 3 manifest seeding has its inputs ready.
 
 ### Phase 2 — Confirm
@@ -98,22 +98,32 @@ detected — if Node is absent they simply do not run. Emit each as a **verbatim
 copy of the live source file** (repo-agnostic — they discover the tree from their
 own location — so no placeholder substitution and no header stripping):
 
-1. `harness-scripts/validate-harness.mjs` ← copy `harness-scripts/validate-harness.mjs`
-2. `harness-scripts/heal-harness.mjs` ← copy `harness-scripts/heal-harness.mjs`
-3. `harness-scripts/session-start.mjs` ← copy `harness-scripts/session-start.mjs`
-4. `harness-scripts/session-end.mjs` ← copy `harness-scripts/session-end.mjs`
-5. `harness-scripts/backpressure-stats.mjs` ← copy `harness-scripts/backpressure-stats.mjs`
-6. `harness-scripts/harness.mjs` ← copy `harness-scripts/harness.mjs`
-7. `harness-scripts/doctor.mjs` ← copy `harness-scripts/doctor.mjs`
+1. `harness-scripts/signature.mjs` ← copy `harness-scripts/signature.mjs`
+2. `harness-scripts/validate-harness.mjs` ← copy `harness-scripts/validate-harness.mjs`
+3. `harness-scripts/heal-harness.mjs` ← copy `harness-scripts/heal-harness.mjs`
+4. `harness-scripts/session-start.mjs` ← copy `harness-scripts/session-start.mjs`
+5. `harness-scripts/session-end.mjs` ← copy `harness-scripts/session-end.mjs`
+6. `harness-scripts/backpressure-stats.mjs` ← copy `harness-scripts/backpressure-stats.mjs`
+7. `harness-scripts/guard.mjs` ← copy `harness-scripts/guard.mjs`
+8. `harness-scripts/harness.mjs` ← copy `harness-scripts/harness.mjs`
+9. `harness-scripts/doctor.mjs` ← copy `harness-scripts/doctor.mjs`
+
+Emit all nine or none. `signature.mjs` is an unconditional `import` of items 4-6
+and `harness.mjs` dispatches a verb to every other script, so a partial emit
+crashes on invocation instead of failing open.
 
 Alongside these, emit `harness/doctor.yml` from `templates/doctor.yml.template`,
 populated from the Gather-phase tooling answer (git always seeded) — part of the
 default scaffold, no new opt-in input. Then **scan the target's manifests** and
 append the tooling they imply per
-[knowledge-base/toolchain-detection.md](../../knowledge-base/toolchain-detection.md),
+[scaffold-harness/references/toolchain-detection.md](../skills/scaffold-harness/references/toolchain-detection.md),
 using **append-if-`name`-missing** (existing entries win — never drop, reorder, or
 rewrite a `tools:` entry the target already declares). Every appended entry reuses
 `doctor.mjs`'s spawn-presence model, so this adds no `doctor.mjs` schema change.
+
+Also emit `harness/guards.yml` from `templates/guards.yml.template`, same
+default-on posture — it backs the "re-run heal at most 3 times" rule the emitted
+`AGENTS.md` states, which `guard.mjs` cannot enforce without the manifest.
 
 #### Phase 3c — CI workflow + local hook, emitted only on opt-in
 

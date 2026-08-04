@@ -121,6 +121,14 @@ const REPAIR = {
     class: 'repairable',
     expected: 'Fix harness/guards.yml so it has a top-level `guards:` list, every entry declares an `id`, and every `mode` is one of off|audit|warn|enforce.',
   },
+  'script-imports': {
+    class: 'repairable',
+    expected: 'Copy the missing module into harness-scripts/ from the source harness (the executable layer is emitted whole — a static import of an un-emitted file crashes the script instead of failing open), or drop the import if the dependency is genuinely gone.',
+  },
+  'emit-contract': {
+    class: 'repairable',
+    expected: 'Name the artifact in the generator contract surface reported above, alongside the others it already lists, so a generated target receives the whole harness rather than a partial one. If the artifact is infrastructure for building this repo and is never emitted, add it to REPO_LOCAL in harness-scripts/validate-harness.mjs instead.',
+  },
 };
 const UNKNOWN_REPAIR = { class: 'repairable', expected: 'Resolve the reported problem, then re-run heal.' };
 

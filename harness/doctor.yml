@@ -1,0 +1,4 @@
+tools:
+  - name: git
+    check: ["git", "--version"]
+    required: true

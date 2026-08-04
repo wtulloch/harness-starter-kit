@@ -713,6 +713,88 @@ if (existsSync(agentsPath)) {
 }
 
 // ---------------------------------------------------------------------------
+// Check 18 — every relative import inside harness-scripts/ resolves on disk.
+// Universal and always on, which is the point: this is the one check that fires
+// inside a *scaffolded target*, where a partial emit actually lands. A static
+// relative import of a file the generator never copied is not a fail-open
+// degradation — the script dies with ERR_MODULE_NOT_FOUND before its first line
+// runs. Dormant when harness-scripts/ is absent (a doc-only harness). See D-34.
+// ---------------------------------------------------------------------------
+const relativeSpecifier = /\b(?:from|import)\s*\(?\s*['"](\.\.?\/[^'"]+)['"]/g;
+// Comment lines are dropped first: prose about an import is not an import, and
+// this check tripped on its own banner before the filter existed.
+const codeLines = (text) => text.split(/\r?\n/)
+  .filter((line) => !/^\s*(?:\/\/|\/\*|\*)/.test(line))
+  .join('\n');
+const harnessScripts = walk(join(ROOT, 'harness-scripts')).filter((p) => p.endsWith('.mjs'));
+for (const script of harnessScripts) {
+  const text = codeLines(readFileSync(script, 'utf8'));
+  for (const m of text.matchAll(relativeSpecifier)) {
+    if (!existsSync(resolve(dirname(script), m[1]))) {
+      fail('script-imports', `${rel(script)}: imports "${m[1]}", which does not exist`);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Check 19 — every shipped emit artifact is named in every generator contract
+// surface that exists. The mirror image of Check 18: that one catches a partial
+// emit from the victim's side, this one catches it at the source, before a
+// target is ever generated. Dormant unless scaffold-harness ships here, so a
+// scaffolded target (which has no generator surfaces) never sees it, and each
+// contract file is checked only if present. The emit contract is all-or-nothing,
+// so shipped→listed is the whole rule — no import-graph reachability needed.
+//
+// The artifact set is *derived from the tree*, not hand-listed, because a static
+// list drifts exactly like the prose it replaced. Scripts alone were the original
+// scope, which left every manifest, workflow, and hook artifact under prose-only
+// control — and that is how the starter-kit mirror came to ship guard.mjs and
+// doctor.mjs with no manifests to read (F-051/F-052). Repo-local files are the
+// one thing a derivation cannot infer, so they get an explicit exemption.
+// See D-34, D-39.
+// ---------------------------------------------------------------------------
+const CONTRACT_FILES = [
+  '.github/prompts/build-harness.prompt.md',
+  '.github/skills/scaffold-harness/SKILL.md',
+  '.github/agents/harness-builder.agent.md',
+  'ADOPTING.md',
+  'tests/scaffold-new-project.test.md',
+];
+// Infrastructure for building/publishing *this* repo, never emitted to a target.
+const REPO_LOCAL = new Set([
+  '.github/workflows/self-test.yml',
+  '.github/workflows/sync-starter-kit.yml',
+]);
+/** Files directly inside `dir` (no recursion — subtrees are per-repo content). */
+const topLevelFiles = (dir) => {
+  const abs = join(ROOT, dir);
+  if (!existsSync(abs)) return [];
+  return readdirSync(abs, { withFileTypes: true })
+    .filter((e) => e.isFile())
+    .map((e) => `${dir}/${e.name}`);
+};
+if (existsSync(join(ROOT, '.github', 'skills', 'scaffold-harness', 'SKILL.md'))) {
+  const shipped = [
+    ...harnessScripts.map(rel),
+    ...topLevelFiles('harness'),          // doctor.yml, guards.yml, incidents.jsonl
+    ...topLevelFiles('.github/workflows'), // validate.yml (repo-local ones exempted)
+    ...topLevelFiles('.githooks'),
+    ...topLevelFiles('.github/hooks'),
+  ].filter((p) => !REPO_LOCAL.has(p)).sort();
+
+  for (const contract of CONTRACT_FILES) {
+    const contractPath = join(ROOT, contract);
+    if (!existsSync(contractPath)) continue;
+    const text = readFileSync(contractPath, 'utf8');
+    for (const artifact of shipped) {
+      if (!text.includes(artifact)) {
+        fail('emit-contract', `${contract}: does not name ${artifact}, which ships in this repo`);
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Report.
 // ---------------------------------------------------------------------------
 if (FIX && fixes.length > 0) {

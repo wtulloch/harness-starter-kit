@@ -1,0 +1,10 @@
+# Ephemeral RPI scratch (research, plans, details, changes, reviews, logs).
+# Regenerated per task and intentionally NOT committed — durable, forward-looking
+# tracking lives in committed files instead: root PROGRESS.md, root features.yml,
+# and harness/state/<slug>/state.md.
+.copilot-tracking/
+
+# Secrets / env
+.env
+.env.*
+!.env.example

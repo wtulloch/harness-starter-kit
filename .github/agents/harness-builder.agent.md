@@ -44,14 +44,22 @@ harnesses. Your job is to build and emit the harness file shape — AGENTS.md,
    as a ✅/❓ checklist. Wait for explicit confirmation before writing.
 4. **Scaffold** — Generate only missing files (unless overwrite approved) using the
    `scaffold-harness` skill and `templates/`. Always emit the doc harness (Layer 0).
-    Emit the scripts (Layers 1-4: `harness-scripts/validate-harness.mjs`,
+    Emit the scripts (Layers 1-4: `harness-scripts/signature.mjs`,
+    `harness-scripts/validate-harness.mjs`,
     `harness-scripts/heal-harness.mjs`, `harness-scripts/session-start.mjs`, `harness-scripts/session-end.mjs`,
-    `harness-scripts/backpressure-stats.mjs`, `harness-scripts/harness.mjs`, `harness-scripts/doctor.mjs`) as
+    `harness-scripts/backpressure-stats.mjs`, `harness-scripts/guard.mjs`, `harness-scripts/harness.mjs`,
+    `harness-scripts/doctor.mjs`) as
     **verbatim copies of the live source files** (repo-agnostic — no placeholder
     substitution), **by default** — skipping them only on an explicit doc-only
-    opt-out — always dependency-free and fail-open. Emit `harness/doctor.yml` from
+    opt-out — always dependency-free and fail-open. Emit the whole set or none:
+    `signature.mjs` is an unconditional `import` of three of the others, so a
+    partial emit crashes rather than degrading. Emit `harness/doctor.yml` from
     `templates/doctor.yml.template`, populated with `git` (always) plus any
-    additional tooling named during Gather, as part of the same default scaffold
+    additional tooling named during Gather, `harness/guards.yml` from
+    `templates/guards.yml.template` (which backs the heal-loop cap the emitted
+    AGENTS.md states), and `harness/incidents.jsonl` from
+    `templates/incidents.jsonl.template` (empty — the ledger review-session
+    appends to and backpressure-stats reads), as part of the same default scaffold
     (no new opt-in), distinct from the `ci_hook`/`agent_hooks` opt-in clauses below.
     Emit `.github/workflows/validate.yml` and
     `.githooks/pre-commit` **only on an explicit `ci_hook=true` opt-in** (they
