@@ -1,0 +1,28 @@
+{
+  "name": "starter-harness",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dependency-free installer for the starter AI-agent engineering harness",
+  "type": "module",
+  "bin": {
+    "starter-harness": "installer/cli.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "installer/",
+    ".github/hooks/hooks.json",
+    ".github/skills/scaffold-harness/references/adoption-profiles.json",
+    ".github/workflows/validate.yml",
+    ".githooks/pre-commit",
+    "harness-scripts/",
+    "templates/"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "test:installer": "node --test tests/installer.test.mjs",
+    "pack:check": "npm pack --dry-run --json"
+  },
+  "license": "MIT"
+}

@@ -7,37 +7,111 @@ your own repository. For what a harness is and how the pieces compose, see
 ## Prerequisites
 
 - VS Code with an agent that reads `.github/` customization files and `AGENTS.md`.
-- (Optional) Node.js on `PATH` if you want to run the scripts (validator, session
-  banner). The doc harness works without it — the scripts are emitted by default
-  (opt-out) and are fail-open, so they stay inert until Node is present. The CI
-  workflow and local pre-commit hook are a separate opt-**in** (`ci_hook=true`),
-  as is the GitHub Copilot agent-hooks config (`agent_hooks=true`).
+- Node.js `>=18`, including npm/npx, and Git on `PATH` for direct package execution.
+   The installed `standard` and `full` profiles use dependency-free Node scripts;
+   a manually copied `doc-only` profile needs no runtime.
+- Git access to `wtulloch/harness-starter-kit`. Public access needs no credentials.
+   Private access uses the credentials Git already recognizes, such as an HTTPS
+   credential helper, a personal access token, or an SSH key. npm registry login
+   and npm tokens are not used.
+
+## Package installer
+
+Use the GitHub-hosted `starter-harness` package when you want the deterministic
+fixed profile core without adding a dependency to the target repository. The
+repository is not published to the npm registry.
+
+> [!IMPORTANT]
+> The remote channel has not yet passed acceptance. The stable examples below
+> use an intentionally non-runnable target-SHA placeholder, and the mutable-main
+> example documents intended syntax rather than verified remote behavior.
+
+Always plan first. For repeatable adoption, replace the placeholder with the full
+40-character target commit SHA recorded after acceptance:
+
+```bash
+npx --yes "github:wtulloch/harness-starter-kit#<TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE>" plan --target . --profile standard
+npx --yes "github:wtulloch/harness-starter-kit#<TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE>" init --target . --profile standard --yes
+```
+
+The first `--yes`, before the GitHub package spec, belongs to npx and accepts its
+remote-package installation prompt. The final `--yes`, after the installer
+arguments, belongs to `starter-harness` and authorizes a mutating `init` or
+`update`. Planning is read-only and needs no trailing installer approval.
+
+The unpinned form follows the repository's mutable default branch (`main`). Use it
+only when you intentionally want the latest available source rather than a
+reproducible installation:
+
+```bash
+npx --yes github:wtulloch/harness-starter-kit plan --target . --profile standard
+```
+
+`standard` is the default; `doc-only` and `full` are also supported. The CLI reads
+the canonical profile catalog directly, preflights every path and ownership
+conflict, and writes nothing when planning or when any conflict exists. It records
+source and installed hashes in `harness/installation.yml`. Use the same immutable
+package spec for later inspection and maintenance:
+
+```bash
+npx --yes "github:wtulloch/harness-starter-kit#<TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE>" status --target .
+npx --yes "github:wtulloch/harness-starter-kit#<TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE>" update --target . --yes
+npx --yes "github:wtulloch/harness-starter-kit#<TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE>" validate --target .
+npx --yes "github:wtulloch/harness-starter-kit#<TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE>" doctor --target .
+```
+
+Updates replace unchanged harness-managed scripts, refresh only the sentinel-owned
+block in `AGENTS.md`, preserve seeded tracking files, and restore missing owned
+shared-file lines. Cumulative upgrades are supported; profile downgrades and
+force-overwrites are refused. Brownfield initialization migrates legacy Copilot
+instructions verbatim before deleting the old file and runs baseline validation.
+The `doc-only` profile validates installer ownership but intentionally skips the
+unavailable executable validator and doctor.
+
+The package installs only the catalog-defined fixed core. Use the generator flow
+below when you also want project-specific instructions, skills, prompts, agents,
+knowledge-base content, or phase-aware state.
+
+### Package troubleshooting
+
+If npx cannot infer the executable, select the package and binary explicitly:
+
+```bash
+npm exec --yes --package="github:wtulloch/harness-starter-kit#<TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE>" -- starter-harness plan --target . --profile standard
+```
+
+If npm's temporary Git clone fails, verify direct Git access and run the installer
+from an inspected checkout. Keep the checkout pinned to the same accepted commit:
+
+```bash
+git clone https://github.com/wtulloch/harness-starter-kit.git
+cd harness-starter-kit
+git checkout <TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE>
+node installer/cli.mjs plan --target /path/to/target --profile standard
+```
+
+For a private repository, fix `git clone` authentication first. Clearing npm
+registry credentials does not repair GitHub Git authentication. After a successful
+plan, run `init` against the same checkout and target, adding the installer's
+trailing `--yes` only when you are ready to write.
 
 ## Option A — Generate into your repo (recommended)
 
 1. Copy this repo's `.github/prompts/build-harness.prompt.md`,
    `.github/agents/harness-builder.agent.md`, `.github/skills/`, and `templates/`
    into your target repo (or open your repo in a workspace alongside this one).
-   The published mirror at
+   The complete Git package mirror at
    [wtulloch/harness-starter-kit](https://github.com/wtulloch/harness-starter-kit)
-   carries the same generator surface if you'd rather clone that.
+   carries the same generator surface if you prefer an inspected clone.
 2. Run the generator prompt:
 
    ```
    /build-harness project-slug=my-service
    ```
 
-   Optional inputs: `stack=...` to tailor instructions, `overwrite=false` (default)
-   to keep it non-destructive, `doc_only=false` (default) — set `doc_only=true` to
-   opt out of the executable layer and emit the doc harness only,
-   `ci_hook=false` (default) — set `ci_hook=true` to additionally opt **in** to
-   `.github/workflows/validate.yml` and `.githooks/pre-commit` (skipped by default
-   because they touch shared infrastructure, unlike the inert scripts), and
-   `agent_hooks=false` (default) — set `agent_hooks=true` to additionally opt
-   **in** to `.github/hooks/hooks.json`, wiring `sessionStart`/`agentStop` to the
-   `session-start`/`session-end` scripts (GitHub Copilot's agent-hooks feature;
-   runs inside the agent's own session, not shared CI/git infrastructure, but
-   still opt-in since it changes agent-session behavior).
+   Optional inputs: `stack=...` to tailor instructions, `overwrite=false`
+   (default) to keep adoption non-destructive, and
+   `profile={doc-only|standard|full}`. `standard` is the default.
 3. Answer the short interview (purpose, stack, build/test commands, conventions,
    desired skills). The generator seeds answers from your README / package manifest.
 4. Review the file plan at the **Phase 2 confirm gate** — nothing is written until
@@ -47,6 +121,22 @@ your own repository. For what a harness is and how the pieces compose, see
 
 The flow is **resumable and idempotent**: re-running tops up genuinely missing
 files without reverting your edits, unless you pass `overwrite=true`.
+
+## Adoption profiles
+
+The canonical fixed-artifact membership lives in
+[adoption-profiles.json](.github/skills/scaffold-harness/references/adoption-profiles.json).
+The generator reads that catalog directly:
+
+- `doc-only` emits the fixed Layer 0 foundation with no executable artifacts.
+- `standard` is the default and adds the complete executable group plus doctor
+   and guard manifests.
+- `full` adds the validation workflow, inert local pre-commit hook, and GitHub
+   Copilot agent-hooks configuration.
+
+Profiles are cumulative. Re-running with a larger profile tops up missing files
+without replacing existing content unless `overwrite=true` was approved. The
+executable group is atomic and is never partially emitted.
 
 ## Option B — Copy templates manually
 
@@ -66,12 +156,11 @@ Strip each template's leading `{{! ... }}` generator-header lines on emit (they 
 not valid content). Add a `.gitignore` (ignoring `.copilot-tracking/`) and a
 `.gitattributes` with `* text=auto eol=lf` so committed files normalize to LF.
 
-### Optional executable layer
+### Standard and full executable layer
 
-Emit these only if you want the deterministic gate (needs Node built-ins only — no
-`npm install`). They are repo-agnostic (each discovers the tree from its own
-location), so copy the **live source file verbatim** — no placeholder substitution,
-no header stripping:
+The `standard` and `full` profiles include the deterministic gate (Node built-ins
+only, no `npm install`). The files are repo-agnostic and copied verbatim from the
+live source. Use the profile catalog for the authoritative path list.
 
 | Emit to | Copy from (live source) |
 |---------|-------------------------|
@@ -94,12 +183,10 @@ that crashes on invocation rather than one that fails open.
 validate` is an alias for `node harness-scripts/validate-harness.mjs` (raw calls stay the
 fail-open baseline).
 
-### Optional CI workflow + local hook (separate opt-in from the scripts above)
+### Full-profile automation
 
-Unlike the scripts, these touch shared infrastructure (a CI runner, a
-contributor's git config) rather than staying inert inside the repo — the
-generator gates them behind `ci_hook=true`, distinct from the scripts' opt-out
-default:
+The `full` profile adds shared CI/git infrastructure and GitHub Copilot agent
+hooks. The local hook file is emitted but never activated automatically:
 
 | Emit to | Copy from (live source) |
 |---------|-------------------------|
@@ -109,13 +196,13 @@ default:
 To enable the emitted pre-commit gate, opt in with
 `git config core.hooksPath .githooks`; emitting the file does not activate it.
 
-### Optional agent-hooks config (separate opt-in; GitHub Copilot only)
+### GitHub Copilot agent-hooks config
 
 `.github/hooks/hooks.json` wires GitHub Copilot's agent-hooks feature
 (`sessionStart` → `session-start.mjs`, `agentStop` → `session-end.mjs`) so the
 read-only banner/checklist scripts run automatically at session boundaries
-instead of relying on the agent remembering to invoke them. Gated behind
-`agent_hooks=true`, independent of `ci_hook`:
+instead of relying on the agent remembering to invoke them. It is part of the
+`full` profile:
 
 | Emit to | Copy from (live source) |
 |---------|-------------------------|
@@ -223,8 +310,8 @@ the normal gating run (`local == CI`).
 - The validator also enforces a deterministic **AGENTS.md line budget** (200
   lines by default — tune the `AGENTS_LINE_BUDGET` constant for your repo), a
   conservative **secret-scan** (AWS keys, GitHub/Slack tokens, PEM headers,
-  generic `api_key=`/`secret=` assignments), and — if you opted into
-  `agent_hooks=true` — that `.github/hooks/hooks.json` is well-formed JSON whose
+   generic `api_key=`/`secret=` assignments), and, under the `full` profile, that
+   `.github/hooks/hooks.json` is well-formed JSON whose
   referenced scripts exist, across every committed file — all fail loud, same as
   every other check.
 

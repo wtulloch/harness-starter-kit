@@ -1,0 +1,15 @@
+#!/bin/sh
+# Opt-in Layer 2 local pre-commit hook. Runs the same deterministic validator the
+# CI gate runs. NOT active by default — enable it once per clone with:
+#
+#   git config core.hooksPath .githooks
+#
+# Fail-open: if Node is not installed, the hook skips validation rather than
+# blocking the commit (the doc harness still works without a runtime).
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "validate-harness: node not found — skipping harness validation." >&2
+  exit 0
+fi
+
+node harness-scripts/validate-harness.mjs

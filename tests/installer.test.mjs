@@ -1,0 +1,298 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { parseArgs, UsageError } from '../installer/lib/args.mjs';
+import { createPlan } from '../installer/lib/planner.mjs';
+import { buildInstallation } from '../installer/lib/manifest.mjs';
+import { executePlan } from '../installer/lib/transaction.mjs';
+import { inspectInstallation, run } from '../installer/lib/app.mjs';
+import { sha256 } from '../installer/lib/catalog.mjs';
+
+test('parser defaults the target and leaves profile resolution to the catalog', () => {
+  const options = parseArgs(['plan'], 'C:\\work\\demo');
+  assert.equal(options.command, 'plan');
+  assert.equal(options.target, resolve('C:\\work\\demo'));
+  assert.equal(options.profile, undefined);
+  assert.equal(options.dryRun, false);
+});
+
+test('parser accepts inline values and mutation flags', () => {
+  const options = parseArgs([
+    'init', '--target=repo', '--profile', 'full', '--project-name', 'Demo',
+    '--project-slug=demo', '--json', '--yes',
+  ], 'C:\\work');
+  assert.equal(options.target, resolve('C:\\work', 'repo'));
+  assert.equal(options.profile, 'full');
+  assert.equal(options.projectName, 'Demo');
+  assert.equal(options.projectSlug, 'demo');
+  assert.equal(options.json, true);
+  assert.equal(options.yes, true);
+});
+
+test('parser rejects unknown profiles and options', () => {
+  assert.throws(() => parseArgs(['plan', '--profile', 'tiny']), UsageError);
+  assert.throws(() => parseArgs(['plan', '--force']), UsageError);
+});
+
+test('parser restricts mutation and project flags by command', () => {
+  assert.throws(() => parseArgs(['status', '--dry-run']), UsageError);
+  assert.throws(() => parseArgs(['validate', '--yes']), UsageError);
+  assert.throws(() => parseArgs(['update', '--project-name', 'Demo']), UsageError);
+  assert.throws(() => parseArgs(['init', '--json']), UsageError);
+});
+
+test('parser recognizes help and version without a command', () => {
+  assert.deepEqual(parseArgs(['--help']), { help: true });
+  assert.deepEqual(parseArgs(['--version']), { version: true });
+});
+
+function fixture() {
+  const target = mkdtempSync(join(tmpdir(), 'starter-harness-'));
+  return { target, cleanup: () => rmSync(target, { recursive: true, force: true }) };
+}
+
+async function runQuiet(options) {
+  const originalLog = console.log;
+  const originalError = console.error;
+  console.log = () => {};
+  console.error = () => {};
+  try { return await run(options); } finally {
+    console.log = originalLog;
+    console.error = originalError;
+  }
+}
+
+test('plan resolves the catalog default without writing', () => {
+  const { target, cleanup } = fixture();
+  try {
+    const plan = createPlan({ command: 'plan', target });
+    assert.equal(plan.profile, 'standard');
+    assert.equal(plan.conflicts.length, 0);
+    assert.equal(plan.operations.filter((operation) => operation.type === 'write').length, 17);
+    assert.deepEqual(readdirSync(target), []);
+  } finally { cleanup(); }
+});
+
+test('brownfield plan preserves project AGENTS content and migrates legacy guidance', () => {
+  const { target, cleanup } = fixture();
+  try {
+    writeFileSync(join(target, 'AGENTS.md'), '# Existing\n\nKeep me.\n');
+    mkdirSync(join(target, '.github'), { recursive: true });
+    writeFileSync(join(target, '.github', 'copilot-instructions.md'), 'Legacy rule.\n');
+    const plan = createPlan({ command: 'plan', target, profile: 'doc-only' });
+    const agents = plan.operations.find((operation) => operation.path === 'AGENTS.md');
+    assert.match(agents.content, /Keep me/);
+    assert.match(agents.content, /Legacy rule/);
+    assert.ok(agents.content.indexOf('Legacy rule') < agents.content.indexOf('HARNESS:BEGIN'));
+    assert.equal(plan.operations.some((operation) => operation.type === 'delete'), true);
+    assert.equal(plan.baseline, true);
+  } finally { cleanup(); }
+});
+
+test('plan rejects a partially present executable group', () => {
+  const { target, cleanup } = fixture();
+  try {
+    mkdirSync(join(target, 'harness-scripts'));
+    writeFileSync(join(target, 'harness-scripts', 'signature.mjs'), 'local');
+    const plan = createPlan({ command: 'plan', target });
+    assert.match(plan.conflicts.map((item) => item.reason).join('\n'), /atomic group is partially present/);
+  } finally { cleanup(); }
+});
+
+test('plan appends manifest-derived doctor tools without replacing existing entries', () => {
+  const { target, cleanup } = fixture();
+  try {
+    writeFileSync(join(target, 'package.json'), '{}\n');
+    const plan = createPlan({ command: 'plan', target });
+    const doctor = plan.operations.find((operation) => operation.path === 'harness/doctor.yml');
+    assert.match(doctor.content, /name: git/);
+    assert.match(doctor.content, /name: node/);
+    assert.match(doctor.content, /name: npm/);
+  } finally { cleanup(); }
+});
+
+test('init applies standard profile, validates it, and records clean ownership', async () => {
+  const { target, cleanup } = fixture();
+  try {
+    const code = await runQuiet({ command: 'init', target, profile: undefined, yes: true, json: true, dryRun: false });
+    assert.equal(code, 0);
+    assert.equal(existsSync(join(target, 'harness', 'installation.yml')), true);
+    assert.equal(existsSync(join(target, 'harness-scripts', 'validate-harness.mjs')), true);
+    const installation = JSON.parse(readFileSync(join(target, 'harness', 'installation.yml'), 'utf8'));
+    assert.equal(installation.installer.name, 'starter-harness');
+    assert.equal(installation.profile, 'standard');
+    assert.equal(installation.artifacts.length, 17);
+    assert.equal(inspectInstallation({ target }).clean, true);
+  } finally { cleanup(); }
+});
+
+test('update is idempotent and dry-run writes nothing', async () => {
+  const { target, cleanup } = fixture();
+  try {
+    await runQuiet({ command: 'init', target, profile: 'doc-only', yes: true, json: true, dryRun: false });
+    const before = readFileSync(join(target, 'AGENTS.md'), 'utf8');
+    const dryCode = await runQuiet({ command: 'update', target, profile: 'standard', yes: false, json: true, dryRun: true });
+    assert.equal(dryCode, 0);
+    assert.equal(readFileSync(join(target, 'AGENTS.md'), 'utf8'), before);
+    const updateCode = await runQuiet({ command: 'update', target, profile: 'doc-only', yes: true, json: true, dryRun: false });
+    assert.equal(updateCode, 0);
+    assert.equal(readFileSync(join(target, 'AGENTS.md'), 'utf8'), before);
+    assert.equal(inspectInstallation({ target }).clean, true);
+  } finally { cleanup(); }
+});
+
+test('update reports a locally modified managed file without overwriting it', async () => {
+  const { target, cleanup } = fixture();
+  try {
+    await runQuiet({ command: 'init', target, profile: 'standard', yes: true, json: true, dryRun: false });
+    const script = join(target, 'harness-scripts', 'signature.mjs');
+    writeFileSync(script, 'local edit\n');
+    const plan = createPlan({ command: 'update', target });
+    assert.match(plan.conflicts.map((item) => item.reason).join('\n'), /locally modified/);
+    assert.equal(readFileSync(script, 'utf8'), 'local edit\n');
+  } finally { cleanup(); }
+});
+
+test('transaction rollback restores all prior bytes after a write failure', () => {
+  const { target, cleanup } = fixture();
+  try {
+    writeFileSync(join(target, '.gitignore'), 'dist/\n');
+    const plan = createPlan({ command: 'init', target, profile: 'doc-only' });
+    const manifest = JSON.stringify(buildInstallation(plan, '0.1.0'), null, 2) + '\n';
+    assert.throws(() => executePlan(plan, manifest, { failAfter: 2 }), /Injected transaction failure/);
+    assert.deepEqual(readdirSync(target), ['.gitignore']);
+    assert.equal(readFileSync(join(target, '.gitignore'), 'utf8'), 'dist/\n');
+  } finally { cleanup(); }
+});
+
+test('status reports a removed owned append line as drift', async () => {
+  const { target, cleanup } = fixture();
+  try {
+    await runQuiet({ command: 'init', target, profile: 'doc-only', yes: true, json: true, dryRun: false });
+    writeFileSync(join(target, '.gitattributes'), 'other=value\n');
+    const status = inspectInstallation({ target });
+    assert.equal(status.clean, false);
+    assert.equal(status.drift.some((item) => item.path === '.gitattributes'), true);
+  } finally { cleanup(); }
+});
+
+test('legacy-only brownfield state migrates content before the managed block', () => {
+  const { target, cleanup } = fixture();
+  try {
+    mkdirSync(join(target, '.github'), { recursive: true });
+    writeFileSync(join(target, '.github', 'copilot-instructions.md'), 'Preserve this.\n');
+    const plan = createPlan({ command: 'plan', target, profile: 'doc-only' });
+    const agents = plan.operations.find((operation) => operation.path === 'AGENTS.md').content;
+    assert.ok(agents.indexOf('Preserve this.') < agents.indexOf('HARNESS:BEGIN'));
+    assert.equal(plan.operations.some((operation) => operation.type === 'delete'), true);
+  } finally { cleanup(); }
+});
+
+test('AGENTS-only brownfield state preserves project content and appends one block', () => {
+  const { target, cleanup } = fixture();
+  try {
+    writeFileSync(join(target, 'AGENTS.md'), '# Project\n\nOwned.\n');
+    const plan = createPlan({ command: 'plan', target, profile: 'doc-only' });
+    const content = plan.operations.find((operation) => operation.path === 'AGENTS.md').content;
+    assert.match(content, /Owned/);
+    assert.equal(content.split('HARNESS:BEGIN').length - 1, 1);
+  } finally { cleanup(); }
+});
+
+test('malformed managed sentinels conflict without producing an AGENTS write', () => {
+  const { target, cleanup } = fixture();
+  try {
+    writeFileSync(join(target, 'AGENTS.md'), '<!-- HARNESS:BEGIN (managed by scaffold-harness — edits inside are overwritten) -->\n');
+    const plan = createPlan({ command: 'plan', target, profile: 'doc-only' });
+    assert.match(plan.conflicts[0].reason, /malformed/);
+    assert.equal(plan.operations.some((operation) => operation.path === 'AGENTS.md'), false);
+  } finally { cleanup(); }
+});
+
+test('update supports cumulative full upgrade and refuses downgrade', async () => {
+  const { target, cleanup } = fixture();
+  try {
+    await runQuiet({ command: 'init', target, profile: 'standard', yes: true, json: true, dryRun: false });
+    const code = await runQuiet({ command: 'update', target, profile: 'full', yes: true, json: true, dryRun: false });
+    assert.equal(code, 0);
+    assert.equal(existsSync(join(target, '.github', 'workflows', 'validate.yml')), true);
+    assert.equal(JSON.parse(readFileSync(join(target, 'harness', 'installation.yml'))).profile, 'full');
+    assert.throws(() => createPlan({ command: 'update', target, profile: 'standard' }), /downgrade/);
+  } finally { cleanup(); }
+});
+
+test('doc-only validate and doctor intentionally skip after ownership validation', async () => {
+  const { target, cleanup } = fixture();
+  try {
+    await runQuiet({ command: 'init', target, profile: 'doc-only', yes: true, json: true, dryRun: false });
+    assert.equal(await runQuiet({ command: 'validate', target, json: true }), 0);
+    assert.equal(await runQuiet({ command: 'doctor', target, json: true }), 0);
+  } finally { cleanup(); }
+});
+
+test('standard validate and doctor delegate to installed scripts', async () => {
+  const { target, cleanup } = fixture();
+  try {
+    await runQuiet({ command: 'init', target, profile: 'standard', yes: true, json: true, dryRun: false });
+    assert.equal(await runQuiet({ command: 'validate', target, json: true }), 0);
+    assert.equal(await runQuiet({ command: 'doctor', target, json: true }), 0);
+  } finally { cleanup(); }
+});
+
+test('brownfield standard init migrates legacy guidance and baseline-validates', async () => {
+  const { target, cleanup } = fixture();
+  try {
+    writeFileSync(join(target, 'AGENTS.md'), '# Existing project\n\nPreserve this.\n');
+    mkdirSync(join(target, '.github'), { recursive: true });
+    writeFileSync(join(target, '.github', 'copilot-instructions.md'), 'Legacy guidance.\n');
+    mkdirSync(join(target, 'project-notes'), { recursive: true });
+    writeFileSync(join(target, 'project-notes', 'legacy.md'), `${'AKIA'}${'ABCDEFGHIJKLMNOP'}\n`);
+    const code = await runQuiet({ command: 'init', target, profile: 'standard', yes: true, json: true, dryRun: false });
+    assert.equal(code, 0);
+    assert.equal(existsSync(join(target, '.github', 'copilot-instructions.md')), false);
+    const agents = readFileSync(join(target, 'AGENTS.md'), 'utf8');
+    assert.match(agents, /Preserve this/);
+    assert.match(agents, /Legacy guidance/);
+    assert.equal(JSON.parse(readFileSync(join(target, 'harness', 'installation.yml'))).baseline, true);
+  } finally { cleanup(); }
+});
+
+test('update replaces an unchanged older managed file and preserves seed-only edits', async () => {
+  const { target, cleanup } = fixture();
+  try {
+    await runQuiet({ command: 'init', target, profile: 'standard', yes: true, json: true, dryRun: false });
+    const scriptPath = join(target, 'harness-scripts', 'signature.mjs');
+    const progressPath = join(target, 'PROGRESS.md');
+    const manifestPath = join(target, 'harness', 'installation.yml');
+    const desiredScript = readFileSync(scriptPath, 'utf8');
+    const oldScript = '// installed by an older package\n';
+    const customProgress = '# Team-owned progress\n';
+    writeFileSync(scriptPath, oldScript);
+    writeFileSync(progressPath, customProgress);
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    manifest.artifacts.find((artifact) => artifact.id === 'signature-script').installedHash = sha256(oldScript);
+    writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+
+    const code = await runQuiet({ command: 'update', target, profile: 'standard', yes: true, json: true, dryRun: false });
+    assert.equal(code, 0);
+    assert.equal(readFileSync(scriptPath, 'utf8'), desiredScript);
+    assert.equal(readFileSync(progressPath, 'utf8'), customProgress);
+  } finally { cleanup(); }
+});
+
+test('CLI emits machine-readable plan output', () => {
+  const { target, cleanup } = fixture();
+  try {
+    const result = spawnSync(process.execPath, [
+      resolve('installer/cli.mjs'), 'plan', '--target', target, '--profile', 'doc-only', '--json',
+    ], { encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.command, 'plan');
+    assert.equal(output.profile, 'doc-only');
+    assert.equal(output.changes.length, 6);
+  } finally { cleanup(); }
+});

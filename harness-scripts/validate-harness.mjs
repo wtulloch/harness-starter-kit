@@ -737,13 +737,11 @@ for (const script of harnessScripts) {
 }
 
 // ---------------------------------------------------------------------------
-// Check 19 — every shipped emit artifact is named in every generator contract
-// surface that exists. The mirror image of Check 18: that one catches a partial
-// emit from the victim's side, this one catches it at the source, before a
-// target is ever generated. Dormant unless scaffold-harness ships here, so a
-// scaffolded target (which has no generator surfaces) never sees it, and each
-// contract file is checked only if present. The emit contract is all-or-nothing,
-// so shipped→listed is the whole rule — no import-graph reachability needed.
+// Check 19 — the canonical adoption-profile catalog covers every shipped emit
+// artifact and every generator contract surface points to that catalog. The
+// mirror image of Check 18: that one catches a partial executable emit from the
+// victim's side, this one catches catalog drift at the source, before a target
+// is generated. Dormant when the catalog is absent, as it is in emitted targets.
 //
 // The artifact set is *derived from the tree*, not hand-listed, because a static
 // list drifts exactly like the prose it replaced. Scripts alone were the original
@@ -751,8 +749,10 @@ for (const script of harnessScripts) {
 // control — and that is how the starter-kit mirror came to ship guard.mjs and
 // doctor.mjs with no manifests to read (F-051/F-052). Repo-local files are the
 // one thing a derivation cannot infer, so they get an explicit exemption.
-// See D-34, D-39.
+// See D-34, D-39, D-40.
 // ---------------------------------------------------------------------------
+const PROFILE_CATALOG = '.github/skills/scaffold-harness/references/adoption-profiles.json';
+const PROFILE_NAMES = ['doc-only', 'standard', 'full'];
 const CONTRACT_FILES = [
   '.github/prompts/build-harness.prompt.md',
   '.github/skills/scaffold-harness/SKILL.md',
@@ -773,7 +773,8 @@ const topLevelFiles = (dir) => {
     .filter((e) => e.isFile())
     .map((e) => `${dir}/${e.name}`);
 };
-if (existsSync(join(ROOT, '.github', 'skills', 'scaffold-harness', 'SKILL.md'))) {
+const profileCatalogPath = join(ROOT, PROFILE_CATALOG);
+if (existsSync(profileCatalogPath)) {
   const shipped = [
     ...harnessScripts.map(rel),
     ...topLevelFiles('harness'),          // doctor.yml, guards.yml, incidents.jsonl
@@ -782,14 +783,106 @@ if (existsSync(join(ROOT, '.github', 'skills', 'scaffold-harness', 'SKILL.md')))
     ...topLevelFiles('.github/hooks'),
   ].filter((p) => !REPO_LOCAL.has(p)).sort();
 
+  let catalog;
+  try {
+    catalog = JSON.parse(readFileSync(profileCatalogPath, 'utf8'));
+  } catch (error) {
+    fail('emit-contract', `${PROFILE_CATALOG}: invalid JSON (${error.message})`);
+  }
+
+  if (catalog) {
+    const artifacts = catalog.artifacts && typeof catalog.artifacts === 'object' ? catalog.artifacts : {};
+    const profiles = catalog.profiles && typeof catalog.profiles === 'object' ? catalog.profiles : {};
+    const artifactIds = new Set(Object.keys(artifacts));
+    const catalogTargets = new Set();
+    const operations = new Set(['append-lines', 'copy', 'reconcile-template', 'template']);
+
+    if (catalog.schemaVersion !== 1) {
+      fail('emit-contract', `${PROFILE_CATALOG}: schemaVersion must be 1`);
+    }
+    if (catalog.defaultProfile !== 'standard') {
+      fail('emit-contract', `${PROFILE_CATALOG}: defaultProfile must be standard`);
+    }
+    if (Object.keys(profiles).sort().join(',') !== [...PROFILE_NAMES].sort().join(',')) {
+      fail('emit-contract', `${PROFILE_CATALOG}: profiles must be exactly ${PROFILE_NAMES.join(', ')}`);
+    }
+
+    for (const [id, artifact] of Object.entries(artifacts)) {
+      if (!artifact || typeof artifact !== 'object' || typeof artifact.target !== 'string' || !artifact.target) {
+        fail('emit-contract', `${PROFILE_CATALOG}: artifact ${id} needs a non-empty target`);
+        continue;
+      }
+      catalogTargets.add(artifact.target);
+      if (!operations.has(artifact.operation)) {
+        fail('emit-contract', `${PROFILE_CATALOG}: artifact ${id} has unknown operation ${artifact.operation}`);
+      }
+      if (artifact.operation === 'append-lines' && (!Array.isArray(artifact.lines) || artifact.lines.length === 0)) {
+        fail('emit-contract', `${PROFILE_CATALOG}: append-lines artifact ${id} needs a non-empty lines array`);
+      }
+      if (artifact.operation !== 'append-lines' && (!artifact.source || typeof artifact.source !== 'string')) {
+        fail('emit-contract', `${PROFILE_CATALOG}: artifact ${id} needs a source`);
+      }
+      if (artifact.source && !existsSync(join(ROOT, artifact.source))) {
+        fail('emit-contract', `${PROFILE_CATALOG}: artifact ${id} source does not exist: ${artifact.source}`);
+      }
+    }
+
+    for (const profile of PROFILE_NAMES) {
+      if (!Array.isArray(profiles[profile])) {
+        fail('emit-contract', `${PROFILE_CATALOG}: profile ${profile} must be an artifact-id array`);
+        continue;
+      }
+      for (const id of profiles[profile]) {
+        if (!artifactIds.has(id)) {
+          fail('emit-contract', `${PROFILE_CATALOG}: profile ${profile} references unknown artifact ${id}`);
+        }
+      }
+      if (new Set(profiles[profile]).size !== profiles[profile].length) {
+        fail('emit-contract', `${PROFILE_CATALOG}: profile ${profile} contains duplicate artifact ids`);
+      }
+    }
+
+    const isSubset = (left, right) => Array.isArray(left) && Array.isArray(right)
+      && left.every((id) => right.includes(id));
+    if (!isSubset(profiles['doc-only'], profiles.standard) || !isSubset(profiles.standard, profiles.full)) {
+      fail('emit-contract', `${PROFILE_CATALOG}: profiles must be cumulative (doc-only ⊆ standard ⊆ full)`);
+    }
+
+    for (const [group, members] of Object.entries(catalog.atomicGroups ?? {})) {
+      if (!Array.isArray(members) || members.length === 0) {
+        fail('emit-contract', `${PROFILE_CATALOG}: atomic group ${group} must be a non-empty artifact-id array`);
+        continue;
+      }
+      for (const id of members) {
+        if (!artifactIds.has(id)) {
+          fail('emit-contract', `${PROFILE_CATALOG}: atomic group ${group} references unknown artifact ${id}`);
+        }
+      }
+      for (const profile of PROFILE_NAMES) {
+        if (!Array.isArray(profiles[profile])) continue;
+        const included = members.filter((id) => profiles[profile].includes(id));
+        if (included.length > 0 && included.length < members.length) {
+          fail('emit-contract', `${PROFILE_CATALOG}: profile ${profile} splits atomic group ${group}`);
+        }
+      }
+    }
+
+    for (const artifact of shipped) {
+      if (!catalogTargets.has(artifact)) {
+        fail('emit-contract', `${PROFILE_CATALOG}: does not catalog ${artifact}, which ships in this repo`);
+      }
+    }
+  }
+
   for (const contract of CONTRACT_FILES) {
     const contractPath = join(ROOT, contract);
     if (!existsSync(contractPath)) continue;
     const text = readFileSync(contractPath, 'utf8');
-    for (const artifact of shipped) {
-      if (!text.includes(artifact)) {
-        fail('emit-contract', `${contract}: does not name ${artifact}, which ships in this repo`);
-      }
+    if (!text.includes(PROFILE_CATALOG)) {
+      fail('emit-contract', `${contract}: does not reference ${PROFILE_CATALOG}`);
+    }
+    for (const profile of PROFILE_NAMES) {
+      if (!text.includes(profile)) fail('emit-contract', `${contract}: does not name profile ${profile}`);
     }
   }
 }

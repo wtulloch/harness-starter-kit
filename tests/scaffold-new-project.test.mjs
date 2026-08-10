@@ -29,23 +29,8 @@ import assert from 'node:assert/strict';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const TPL = join(ROOT, 'templates');
-const OPTIONAL_ARTIFACTS = [
-  'harness-scripts/signature.mjs',
-  'harness-scripts/validate-harness.mjs',
-  'harness-scripts/heal-harness.mjs',
-  'harness-scripts/session-start.mjs',
-  'harness-scripts/session-end.mjs',
-  'harness-scripts/backpressure-stats.mjs',
-  'harness-scripts/guard.mjs',
-  'harness-scripts/harness.mjs',
-  'harness-scripts/doctor.mjs',
-  'harness/doctor.yml',
-  'harness/guards.yml',
-  'harness/incidents.jsonl',
-  '.github/workflows/validate.yml',
-  '.githooks/pre-commit',
-  '.github/hooks/hooks.json',
-];
+const PROFILE_CATALOG_PATH = join(ROOT, '.github', 'skills', 'scaffold-harness', 'references', 'adoption-profiles.json');
+const PROFILE_CATALOG = JSON.parse(readFileSync(PROFILE_CATALOG_PATH, 'utf8'));
 
 // Registers a node:test case. The boolean/detail are computed synchronously
 // during the imperative scaffold simulation below (same sequencing the prior
@@ -55,6 +40,40 @@ const OPTIONAL_ARTIFACTS = [
 const check = (name, ok, detail = '') => {
   test(name, () => { assert.ok(ok, detail || name); });
 };
+
+// Canonical profile contract. Keep these checks in-process: profile structure is
+// data, so subprocess validation would add runtime without increasing coverage.
+const PROFILE_NAMES = ['doc-only', 'standard', 'full'];
+const artifactIds = new Set(Object.keys(PROFILE_CATALOG.artifacts ?? {}));
+const profileEntries = Object.entries(PROFILE_CATALOG.profiles ?? {});
+const unknownProfileArtifacts = profileEntries.flatMap(([profile, ids]) =>
+  ids.filter((id) => !artifactIds.has(id)).map((id) => `${profile}: ${id}`));
+const missingProfileSources = Object.entries(PROFILE_CATALOG.artifacts ?? {})
+  .filter(([, artifact]) => artifact.source && !existsSync(join(ROOT, artifact.source)))
+  .map(([id, artifact]) => `${id}: ${artifact.source}`);
+const operations = new Set(['append-lines', 'copy', 'reconcile-template', 'template']);
+const malformedArtifacts = Object.entries(PROFILE_CATALOG.artifacts ?? {})
+  .filter(([, artifact]) => !artifact.target || !operations.has(artifact.operation)
+    || (artifact.operation === 'append-lines' && (!Array.isArray(artifact.lines) || artifact.lines.length === 0))
+    || (artifact.operation !== 'append-lines' && !artifact.source))
+  .map(([id]) => id);
+const isSubset = (left, right) => left.every((id) => right.includes(id));
+const atomicGroupsSplit = profileEntries.flatMap(([profile, ids]) =>
+  Object.entries(PROFILE_CATALOG.atomicGroups ?? {}).flatMap(([group, members]) => {
+    const included = members.filter((id) => ids.includes(id));
+    return included.length > 0 && included.length < members.length ? [`${profile}: ${group}`] : [];
+  }));
+
+check('profile-catalog-schema', PROFILE_CATALOG.schemaVersion === 1
+  && PROFILE_CATALOG.defaultProfile === 'standard'
+  && PROFILE_NAMES.every((name) => Array.isArray(PROFILE_CATALOG.profiles?.[name]))
+  && Object.keys(PROFILE_CATALOG.profiles ?? {}).length === PROFILE_NAMES.length);
+check('profile-catalog-artifacts', unknownProfileArtifacts.length === 0
+  && missingProfileSources.length === 0 && malformedArtifacts.length === 0,
+  [...unknownProfileArtifacts, ...missingProfileSources, ...malformedArtifacts].join(', '));
+check('profile-catalog-cumulative', isSubset(PROFILE_CATALOG.profiles['doc-only'], PROFILE_CATALOG.profiles.standard)
+  && isSubset(PROFILE_CATALOG.profiles.standard, PROFILE_CATALOG.profiles.full));
+check('profile-catalog-atomic-groups', atomicGroupsSplit.length === 0, atomicGroupsSplit.join(', '));
 
 // --- Placeholder substitution for the human/agent-fill template blanks. --------
 const MAP = {
@@ -91,14 +110,32 @@ const emitFromSource = (target, rel) => {
   copyFileSync(join(ROOT, rel), full);
 };
 
+const profileArtifacts = (profile = PROFILE_CATALOG.defaultProfile) => {
+  const ids = PROFILE_CATALOG.profiles[profile];
+  if (!ids) throw new Error(`Unknown adoption profile: ${profile}`);
+  return ids.map((id) => ({ id, ...PROFILE_CATALOG.artifacts[id] }));
+};
+
+const emitProfile = (target, profile = PROFILE_CATALOG.defaultProfile) => {
+  for (const artifact of profileArtifacts(profile)) {
+    if (artifact.operation === 'copy') {
+      emitFromSource(target, artifact.target);
+    } else if (artifact.operation === 'template' || artifact.operation === 'reconcile-template') {
+      emitFromTemplate(target, artifact.target, artifact.source.replace(/^templates\//, ''));
+    } else if (artifact.operation === 'append-lines') {
+      emit(target, artifact.target, `${artifact.lines.join('\n')}\n`);
+    }
+  }
+};
+
 // --- Build a scaffolded-harness fixture in a temp dir. -------------------------
-function scaffoldFixture() {
+function scaffoldFixture(profile = PROFILE_CATALOG.defaultProfile) {
   const target = mkdtempSync(join(tmpdir(), 'harness-scaffold-'));
 
-  // Template-driven doc harness (Layer 0).
-  emitFromTemplate(target, 'AGENTS.md', 'AGENTS.md.template');
-  emitFromTemplate(target, 'PROGRESS.md', 'PROGRESS.md.template');
-  emitFromTemplate(target, 'features.yml', 'features.yml.template');
+  // Fixed artifacts come only from the canonical profile catalog.
+  emitProfile(target, profile);
+
+  // Phase-aware state is procedural and deliberately outside fixed profiles.
   emitFromTemplate(target, 'harness/state/demo-service/state.md', 'state.md.template');
 
   // Agent-authored files the generator writes (not template-copied) — minimal
@@ -112,26 +149,6 @@ function scaffoldFixture() {
   emit(target, 'knowledge-base/index.md',
     '# Knowledge Base\n\n- [conventions.md](conventions.md) — authoring conventions.\n');
   emit(target, 'knowledge-base/conventions.md', '# Conventions\n\nLink, don\u2019t inline.\n');
-
-  // Optional executable layer (Layer 1-4) — copied verbatim from the live source
-  // files (repo-agnostic / self-describing).
-  emitFromSource(target, 'harness-scripts/signature.mjs');
-  emitFromSource(target, 'harness-scripts/validate-harness.mjs');
-  emitFromSource(target, 'harness-scripts/heal-harness.mjs');
-  emitFromSource(target, 'harness-scripts/session-start.mjs');
-  emitFromSource(target, 'harness-scripts/session-end.mjs');
-  emitFromSource(target, 'harness-scripts/backpressure-stats.mjs');
-  emitFromSource(target, 'harness-scripts/guard.mjs');
-  emitFromSource(target, 'harness-scripts/harness.mjs');
-  emitFromSource(target, 'harness-scripts/doctor.mjs');
-  emitFromTemplate(target, 'harness/doctor.yml', 'doctor.yml.template');
-  emitFromTemplate(target, 'harness/guards.yml', 'guards.yml.template');
-  emitFromSource(target, '.github/workflows/validate.yml');
-  emitFromSource(target, '.githooks/pre-commit');
-
-  // Tracking foundation.
-  emit(target, '.gitignore', '.copilot-tracking/\n.env\n');
-  emit(target, '.gitattributes', '* text=auto eol=lf\n');
 
   return target;
 }
@@ -157,7 +174,7 @@ function listTree(dir, base = dir, out = []) {
 // --- Run the checks. ----------------------------------------------------------
 let target;
 try {
-  target = scaffoldFixture();
+  target = scaffoldFixture('full');
 
   // Stage 2/3 — required files emitted.
   const required = [
@@ -203,7 +220,8 @@ try {
   // Stage 3 — the hook file is emitted, but scaffold does not activate it.
   check('hook-emitted-inactive', existsSync(join(target, '.githooks', 'pre-commit')) && !existsSync(join(target, '.git')));
 
-  // Generator contract — every owning surface names the canonical optional set.
+  // Generator contract — every owning surface points to the canonical catalog
+  // and names the supported profiles without replicating its artifact roster.
   const contractFiles = [
     '.github/prompts/build-harness.prompt.md',
     '.github/skills/scaffold-harness/SKILL.md',
@@ -214,11 +232,14 @@ try {
   const contractOmissions = [];
   for (const file of contractFiles) {
     const text = readFileSync(join(ROOT, file), 'utf8');
-    for (const artifact of OPTIONAL_ARTIFACTS) {
-      if (!text.includes(artifact)) contractOmissions.push(`${file}: ${artifact}`);
+    if (!text.includes('.github/skills/scaffold-harness/references/adoption-profiles.json')) {
+      contractOmissions.push(`${file}: profile catalog`);
+    }
+    for (const profile of PROFILE_NAMES) {
+      if (!text.includes(profile)) contractOmissions.push(`${file}: ${profile}`);
     }
   }
-  check('optional-artifact-contract', contractOmissions.length === 0, contractOmissions.join(', '));
+  check('profile-surface-contract', contractOmissions.length === 0, contractOmissions.join(', '));
 
   // Stage 4 — deterministic validator passes clean.
   const v = runNode(target, 'harness-scripts/validate-harness.mjs');
@@ -911,20 +932,13 @@ try {
   expectFail('validator-script-imports-negative', 'script-imports', sigScript,
     () => rmSync(sigScript));
 
-  // --- Check 19 — emit-contract. Dormant until scaffold-harness ships here, so
-  // the fixture installs one; a contract surface naming no scripts is exactly the
-  // omission that shipped the bug Check 18 catches downstream.
+  // --- Check 19 — emit-contract. Emitted targets omit the generator catalog, so
+  // install a minimal source-side catalog here to exercise profile enforcement.
   const scaffoldSkill = join(target, '.github', 'skills', 'scaffold-harness', 'SKILL.md');
-  const skillDoc = (body) => () => {
-    mkdirSync(dirname(scaffoldSkill), { recursive: true });
-    writeFileSync(scaffoldSkill,
-      `---\nname: scaffold-harness\ndescription: "Emit the harness into a target repo."\n---\n\n# Scaffold\n\n${body}`);
-  };
-  expectFail('validator-emit-contract-negative', 'emit-contract', scaffoldSkill,
-    skillDoc('Emits the executable layer.\n'));
-
-  // Mirrors the validator's derivation: the contract covers more than scripts, so
-  // the fixture has to be derived too or it pins the check back to *.mjs.
+  const repoLocalWorkflows = new Set([
+    '.github/workflows/self-test.yml',
+    '.github/workflows/sync-starter-kit.yml',
+  ]);
   const topLevel = (dir) => {
     const abs = join(target, dir);
     if (!existsSync(abs)) return [];
@@ -938,17 +952,66 @@ try {
     ...topLevel('.github/workflows'),
     ...topLevel('.githooks'),
     ...topLevel('.github/hooks'),
-  ];
-  const listing = (artifacts) => artifacts.map((a) => `- \`${a}\`\n`).join('');
+  ].filter((path) => !repoLocalWorkflows.has(path));
+  const fixtureIds = emitArtifacts.map((_, index) => `artifact-${index}`);
+  const fixtureArtifacts = Object.fromEntries(emitArtifacts.map((path, index) => [
+    fixtureIds[index],
+    { source: path, target: path, operation: 'copy' },
+  ]));
+  const profileCatalog = join(target, '.github', 'skills', 'scaffold-harness', 'references', 'adoption-profiles.json');
+  const cleanCatalog = {
+    schemaVersion: 1,
+    defaultProfile: 'standard',
+    atomicGroups: {},
+    artifacts: fixtureArtifacts,
+    profiles: { 'doc-only': [], standard: fixtureIds, full: fixtureIds },
+  };
+  mkdirSync(dirname(profileCatalog), { recursive: true });
+  writeFileSync(profileCatalog, `${JSON.stringify(cleanCatalog, null, 2)}\n`);
+  writeFileSync(scaffoldSkill,
+    '---\nname: scaffold-harness\ndescription: "Emit the harness into a target repo."\n---\n\n'
+    + '# Scaffold\n\nRead `.github/skills/scaffold-harness/references/adoption-profiles.json` and resolve doc-only, standard, or full.\n');
 
-  // A surface naming every script but dropping a manifest is the F-051 shape: the
-  // scripts arrive, the file they read does not, and the layer degrades silently.
-  const manifest = emitArtifacts.find((a) => a === 'harness/guards.yml');
-  expectFail('validator-emit-contract-manifest-negative', 'emit-contract', scaffoldSkill,
-    skillDoc(listing(emitArtifacts.filter((a) => a !== manifest))));
+  expectFail('validator-emit-contract-surface-negative', 'emit-contract', scaffoldSkill,
+    () => writeFileSync(scaffoldSkill,
+      '---\nname: scaffold-harness\ndescription: "Emit the harness into a target repo."\n---\n\n# Scaffold\n\nResolve doc-only, standard, or full.\n'));
 
-  // Positive: a contract surface naming every shipped artifact validates clean.
-  skillDoc(listing(emitArtifacts))();
+  const guardsEntry = Object.entries(fixtureArtifacts).find(([, artifact]) => artifact.target === 'harness/guards.yml');
+  expectFail('validator-emit-contract-tree-negative', 'emit-contract', profileCatalog,
+    () => {
+      const changed = structuredClone(cleanCatalog);
+      delete changed.artifacts[guardsEntry[0]];
+      for (const profile of ['standard', 'full']) changed.profiles[profile] = changed.profiles[profile].filter((id) => id !== guardsEntry[0]);
+      writeFileSync(profileCatalog, `${JSON.stringify(changed, null, 2)}\n`);
+    });
+
+  expectFail('validator-emit-contract-source-negative', 'emit-contract', profileCatalog,
+    () => {
+      const changed = structuredClone(cleanCatalog);
+      changed.artifacts[fixtureIds[0]].source = 'missing/source.mjs';
+      writeFileSync(profileCatalog, `${JSON.stringify(changed, null, 2)}\n`);
+    });
+
+  expectFail('validator-emit-contract-cumulative-negative', 'emit-contract', profileCatalog,
+    () => {
+      const changed = structuredClone(cleanCatalog);
+      changed.profiles['doc-only'] = [fixtureIds[0]];
+      changed.profiles.standard = [];
+      writeFileSync(profileCatalog, `${JSON.stringify(changed, null, 2)}\n`);
+    });
+
+  expectFail('validator-emit-contract-atomic-negative', 'emit-contract', profileCatalog,
+    () => {
+      const changed = structuredClone(cleanCatalog);
+      changed.atomicGroups.executable = [fixtureIds[0], fixtureIds[1]];
+      changed.profiles.standard = changed.profiles.standard.filter((id) => id !== fixtureIds[1]);
+      writeFileSync(profileCatalog, `${JSON.stringify(changed, null, 2)}\n`);
+    });
+
+  const unknownWorkflow = join(target, '.github', 'workflows', 'unknown-repo-local.yml');
+  expectFail('validator-emit-contract-unlisted-workflow-negative', 'emit-contract', unknownWorkflow,
+    () => writeFileSync(unknownWorkflow, 'name: unknown-repo-local\n'));
+
   const vEmit = runNode(target, 'harness-scripts/validate-harness.mjs');
   rmSync(join(target, '.github', 'skills', 'scaffold-harness'), { recursive: true, force: true });
   check('validator-emit-contract-clean', vEmit.code === 0,
@@ -957,44 +1020,42 @@ try {
   if (target) rmSync(target, { recursive: true, force: true });
 }
 
-// --- Phase 3 contract: the CI workflow + local git hook are gated behind a
-// separate opt-in (`ci_hook=true`), independent of the scripts' opt-out default.
+// --- Phase 3 profile matrix: doc-only < standard (default) < full. ----------
 let target2;
 try {
-  target2 = mkdtempSync(join(tmpdir(), 'harness-scaffold-cihook-'));
-
-  // Default (ci_hook=false, doc_only=false): scripts emitted, CI workflow + hook are not.
-  emitFromSource(target2, 'harness-scripts/validate-harness.mjs');
-  emitFromSource(target2, 'harness-scripts/session-start.mjs');
-  check('ci-hook-default-workflow-absent', !existsSync(join(target2, '.github', 'workflows', 'validate.yml')));
-  check('ci-hook-default-githook-absent', !existsSync(join(target2, '.githooks', 'pre-commit')));
-
-  // Opt-in (ci_hook=true), applied as a create-missing-only top-up: both now emitted.
-  emitFromSource(target2, '.github/workflows/validate.yml');
-  emitFromSource(target2, '.githooks/pre-commit');
-  check('ci-hook-optin-workflow-present', existsSync(join(target2, '.github', 'workflows', 'validate.yml')));
-  check('ci-hook-optin-githook-present', existsSync(join(target2, '.githooks', 'pre-commit')));
+  target2 = scaffoldFixture('doc-only');
+  check('profile-doc-only-layer0-present', existsSync(join(target2, 'AGENTS.md'))
+    && existsSync(join(target2, 'harness', 'incidents.jsonl')));
+  check('profile-doc-only-executable-absent', !existsSync(join(target2, 'harness-scripts'))
+    && !existsSync(join(target2, 'harness', 'doctor.yml'))
+    && !existsSync(join(target2, 'harness', 'guards.yml')));
 } finally {
   if (target2) rmSync(target2, { recursive: true, force: true });
 }
 
-// --- Phase 3d contract: the GitHub Copilot agent-hooks config is gated behind a
-// separate opt-in (`agent_hooks=true`), independent of both `doc_only` and `ci_hook`.
 let target3;
 try {
-  target3 = mkdtempSync(join(tmpdir(), 'harness-scaffold-agenthooks-'));
-
-  // Default (agent_hooks=false): scripts emitted, hooks.json is not.
-  emitFromSource(target3, 'harness-scripts/harness.mjs');
-  emitFromSource(target3, 'harness-scripts/session-start.mjs');
-  emitFromSource(target3, 'harness-scripts/session-end.mjs');
-  check('agent-hooks-default-config-absent', !existsSync(join(target3, '.github', 'hooks', 'hooks.json')));
-
-  // Opt-in (agent_hooks=true), applied as a create-missing-only top-up: config now emitted.
-  emitFromSource(target3, '.github/hooks/hooks.json');
-  check('agent-hooks-optin-config-present', existsSync(join(target3, '.github', 'hooks', 'hooks.json')));
+  target3 = scaffoldFixture();
+  const executableTargets = PROFILE_CATALOG.atomicGroups['executable-layer']
+    .map((id) => PROFILE_CATALOG.artifacts[id].target);
+  check('profile-standard-is-default', PROFILE_CATALOG.defaultProfile === 'standard'
+    && executableTargets.every((path) => existsSync(join(target3, path))));
+  check('profile-standard-automation-absent', !existsSync(join(target3, '.github', 'workflows', 'validate.yml'))
+    && !existsSync(join(target3, '.githooks', 'pre-commit'))
+    && !existsSync(join(target3, '.github', 'hooks', 'hooks.json')));
 } finally {
   if (target3) rmSync(target3, { recursive: true, force: true });
+}
+
+let targetFull;
+try {
+  targetFull = scaffoldFixture('full');
+  check('profile-full-automation-present', existsSync(join(targetFull, '.github', 'workflows', 'validate.yml'))
+    && existsSync(join(targetFull, '.githooks', 'pre-commit'))
+    && existsSync(join(targetFull, '.github', 'hooks', 'hooks.json')));
+  check('profile-full-hook-inactive', !existsSync(join(targetFull, '.git')));
+} finally {
+  if (targetFull) rmSync(targetFull, { recursive: true, force: true });
 }
 
 // --- Location-agnostic ROOT resolution (findRepoRoot anchor-search). -----------

@@ -1,0 +1,17 @@
+name: validate-harness
+
+# Layer 2 CI gate: runs the same deterministic validator locally and in CI, so a
+# green local run predicts a green CI run (local == CI). Uses the runner's
+# preinstalled Node with no dependency install — the validator uses built-ins only.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate harness
+        run: node harness-scripts/validate-harness.mjs

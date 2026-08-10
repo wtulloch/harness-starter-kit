@@ -1,7 +1,7 @@
 ---
 description: "Interactively scaffold an AI-agent engineering harness (AGENTS.md, instructions, skills, knowledge base, prompts, session tracking) into this repo via a resumable, idempotent 6-phase flow."
 agent: harness-builder
-argument-hint: "project-slug=... [stack=...] [overwrite=false] [ci_hook=false] [agent_hooks=false]"
+argument-hint: "project-slug=... [stack=...] [profile={doc-only|standard|full}] [overwrite=false]"
 ---
 
 # Build Engineering Harness
@@ -13,10 +13,11 @@ for initiative `${input:project-slug}`.
 
 - `${input:project-slug}`: (Required) kebab-case identifier for tracking (e.g. `my-service`).
 - `${input:stack}`: (Optional) primary languages/frameworks to tailor instructions.
+- `${input:profile}`: (Optional, default `standard`) fixed-artifact adoption
+   profile from
+   `.github/skills/scaffold-harness/references/adoption-profiles.json`:
+   `doc-only`, `standard`, or `full`.
 - `${input:overwrite}`: (Optional, default false) allow replacing existing harness files.
-- `${input:doc_only}`: (Optional, default false) opt out of the executable layer and emit the doc harness (Layer 0) only.
-- `${input:ci_hook}`: (Optional, default false) opt **in** to emitting the CI workflow (`.github/workflows/validate.yml`) and the local pre-commit hook (`.githooks/pre-commit`). These touch shared infrastructure (a CI runner, a contributor's git config surface) that the scripts (validator/heal/session-start/session-end/backpressure-stats/dispatcher) do not, so — unlike the rest of the executable layer — they are opt-in, not opt-out.
-- `${input:agent_hooks}`: (Optional, default false) opt **in** to emitting `.github/hooks/hooks.json`, wiring GitHub Copilot's agent-hooks feature (`sessionStart` → `session-start.mjs`, `agentStop` → `session-end.mjs`). A separate opt-in from `ci_hook` — it runs inside the agent's own session rather than shared CI/git infrastructure, but still changes agent-session behavior.
 
 ## Required steps
 
@@ -33,6 +34,9 @@ for initiative `${input:project-slug}`.
 4. Record the **AGENTS.md reconciliation state** — neither / `AGENTS.md` only /
    `.github/copilot-instructions.md` only / both — since it selects the Phase 3
    `merge_agents` action.
+5. Read `.github/skills/scaffold-harness/references/adoption-profiles.json`,
+   resolve `${input:profile}` (default `standard`), and reject an unknown profile
+   before planning any writes.
 
 ### Phase 1 — Gather (interview)
 
@@ -49,7 +53,8 @@ so the Phase 3 manifest seeding has its inputs ready.
 
 ### Phase 2 — Confirm
 
-Show a compact spec and the exact file plan (paths + purpose) as a ✅/❓ checklist.
+Show a compact spec, the selected profile, and its exact fixed-artifact file plan
+resolved from the canonical profile catalog as a ✅/❓ checklist.
 Wait for explicit user confirmation before writing anything.
 
 ### Phase 3 — Scaffold (only missing files unless overwrite)
@@ -89,69 +94,31 @@ so nothing is lost; (2) announce the removal to the user; (3) delete
 removal — never a silent loss — which keeps the single-always-on standard and
 validator Check 5 green (no co-shipped `copilot-instructions.md`).
 
-#### Phase 3b — Executable layer, emitted by default (opt-out)
+#### Phase 3b — Emit the selected adoption profile
 
-Always emit the doc harness (Layer 0). Emit the scripts (Layers 1-4) **by
-default**; skip them only when `${input:doc_only}` is true. The scripts are
-dependency-free and fail-open, so emitting them is safe even when no runtime is
-detected — if Node is absent they simply do not run. Emit each as a **verbatim
-copy of the live source file** (repo-agnostic — they discover the tree from their
-own location — so no placeholder substitution and no header stripping):
+Resolve the selected `doc-only`, `standard`, or `full` profile from
+`.github/skills/scaffold-harness/references/adoption-profiles.json`. Apply each
+catalog operation exactly as declared. Source copies are verbatim; templates use
+placeholder substitution and header stripping; append-lines entries preserve
+existing shared-file content. The catalog's executable group is atomic, so never
+emit only part of it.
 
-1. `harness-scripts/signature.mjs` ← copy `harness-scripts/signature.mjs`
-2. `harness-scripts/validate-harness.mjs` ← copy `harness-scripts/validate-harness.mjs`
-3. `harness-scripts/heal-harness.mjs` ← copy `harness-scripts/heal-harness.mjs`
-4. `harness-scripts/session-start.mjs` ← copy `harness-scripts/session-start.mjs`
-5. `harness-scripts/session-end.mjs` ← copy `harness-scripts/session-end.mjs`
-6. `harness-scripts/backpressure-stats.mjs` ← copy `harness-scripts/backpressure-stats.mjs`
-7. `harness-scripts/guard.mjs` ← copy `harness-scripts/guard.mjs`
-8. `harness-scripts/harness.mjs` ← copy `harness-scripts/harness.mjs`
-9. `harness-scripts/doctor.mjs` ← copy `harness-scripts/doctor.mjs`
+`doc-only` emits Layer 0 fixed artifacts. `standard`, the default, adds the
+dependency-free executable layer and its doctor/guard manifests. `full` adds the
+validation workflow, inert local pre-commit hook, and GitHub Copilot agent-hooks
+configuration. Never activate the emitted pre-commit hook automatically; document
+the explicit `git config core.hooksPath .githooks` command.
 
-Emit all nine or none. `signature.mjs` is an unconditional `import` of items 4-6
-and `harness.mjs` dispatches a verb to every other script, so a partial emit
-crashes on invocation instead of failing open.
+When `harness/doctor.yml` is selected, populate it from the Gather-phase tooling
+answer (git always seeded), then scan the target manifests and append implied
+tools per
+[scaffold-harness/references/toolchain-detection.md](../skills/scaffold-harness/references/toolchain-detection.md).
+Use append-if-`name`-missing: existing entries win, with no reordering or rewrite.
 
-Alongside these, emit `harness/doctor.yml` from `templates/doctor.yml.template`,
-populated from the Gather-phase tooling answer (git always seeded) — part of the
-default scaffold, no new opt-in input. Then **scan the target's manifests** and
-append the tooling they imply per
-[scaffold-harness/references/toolchain-detection.md](../skills/scaffold-harness/references/toolchain-detection.md),
-using **append-if-`name`-missing** (existing entries win — never drop, reorder, or
-rewrite a `tools:` entry the target already declares). Every appended entry reuses
-`doctor.mjs`'s spawn-presence model, so this adds no `doctor.mjs` schema change.
+Record the selected profile and emitted/skipped layers in committed tracking
+(`PROGRESS.md` / `features.yml`, or `state.md` if the third tier was opted into).
 
-Also emit `harness/guards.yml` from `templates/guards.yml.template`, same
-default-on posture — it backs the "re-run heal at most 3 times" rule the emitted
-`AGENTS.md` states, which `guard.mjs` cannot enforce without the manifest.
-
-#### Phase 3c — CI workflow + local hook, emitted only on opt-in
-
-Emit these two **only when `${input:ci_hook}` is true** — they are skipped by
-default, independently of `${input:doc_only}`, because they touch shared
-infrastructure (a CI runner, a contributor's git-config surface) rather than
-staying inert inside the repo:
-
-7. `.github/workflows/validate.yml` ← copy `.github/workflows/validate.yml`
-8. `.githooks/pre-commit` ← copy `.githooks/pre-commit`
-
-The scripts are dependency-free (Node built-ins only) and self-describing; the CI
-workflow uses the runner's preinstalled Node with no install. Do not enable the
-emitted local hook automatically even when `ci_hook=true` — document the opt-in
-`git config core.hooksPath .githooks`.
-Record the emit decision (which layers emitted vs skipped, and why) in the
-committed tracking (`PROGRESS.md` / `features.yml`, or `state.md` if the third
-tier was opted into).
-
-#### Phase 3d — GitHub Copilot agent-hooks config, emitted only on opt-in
-
-Emit `.github/hooks/hooks.json` **only when `${input:agent_hooks}` is true**,
-independently of `${input:ci_hook}`:
-
-9. `.github/hooks/hooks.json` ← copy `.github/hooks/hooks.json` (verbatim, same
-   no-placeholder rule as the scripts)
-
-Document the honest limitation alongside the emission: the scripts print
+For `full`, document the honest agent-hooks limitation: the scripts print
 plain-text banners, not the single-line JSON (`{"additionalContext": "..."}`) the
 hook runtime needs to inject output back into the agent's context — this
 automates the *trigger* only (the scripts run without the agent remembering to),

@@ -143,8 +143,8 @@ deterministic.
 |-------|----------|----------------|-------------|
 | **L0 Doc harness** (always present) | AGENTS.md + instructions/skills/prompts/agents + knowledge-base | Agent-interpreted | n/a — this is the spec |
 | **L1 Constraint** (optional) | `harness-scripts/validate-harness.mjs` (frontmatter, skill-name, `applyTo`, features schema, links, tracking-paths, incident-log integrity, AGENTS.md line budget, secret-scan, agent-hooks config consistency, script-import resolution, generator emit-contract coverage), plus `harness-scripts/doctor.mjs` (hard-gated tool/dependency pre-flight, reading `harness/doctor.yml`; consistency-checked by validator Check 14); a missing required tool is also surfaced as a `doctor-missing-tool` repair directive by `harness-scripts/heal-harness.mjs` | Yes (no LLM) | Yes — absent runtime → agent-driven checks only |
-| **L2 CI + local hook** (opt-in) | `.github/workflows/validate.yml`, `.githooks/pre-commit` | Yes | Yes — both are gated behind an explicit `ci_hook=true` (they touch shared infrastructure — a CI runner, a contributor's git config — unlike the inert L1/L3 scripts), and the local hook is additionally opt-in via `core.hooksPath` even once emitted |
-| **L2.5 Agent hooks** (opt-in) | `.github/hooks/hooks.json` | No (runtime-dependent on the GitHub Copilot agent-hooks feature) | Yes — gated behind a separate `agent_hooks=true`; runs inside the agent's own session, and its stdout is plain text (not the JSON the hook runtime needs to inject context), so it automates only the trigger |
+| **L2 CI + local hook** (`full`) | `.github/workflows/validate.yml`, `.githooks/pre-commit` | Yes | Yes; `full` emits both, and the local hook still requires explicit activation through `core.hooksPath` |
+| **L2.5 Agent hooks** (`full`) | `.github/hooks/hooks.json` | No (runtime-dependent on the GitHub Copilot agent-hooks feature) | Yes; its stdout is plain text rather than context-injection JSON, so it automates only the trigger |
 | **L3 Session bootstrap** (optional) | `harness-scripts/session-start.mjs` | Yes (read-only) | Yes — missing sources degrade to a labeled note |
 | **L4 Re-engage + loop guards** (optional) | `harness-scripts/heal-harness.mjs` (structured repair directives, exit 2), plus `harness-scripts/guard.mjs` reading `harness/guards.yml` — declared loop guards (`heal-loop-cap`, `no-progress`) evaluated at gate-run boundaries, with cross-run counters in gitignored `.copilot-tracking/guards/state.json` | Yes (no LLM) | Yes — an absent/unparseable manifest or unwritable state degrades to "no guard", i.e. pre-guard behavior |
 
@@ -169,19 +169,12 @@ Principles:
   silent frontmatter corruption or an "I read the state" hallucination), add a new
   deterministic check to the validator so the class can never recur unnoticed.
 - **Never required to run.** The doc harness is complete on its own; the
-  executable layers are enhancements. The generator emits L0 always and emits the
-  L1/L3/L4 scripts **by default (opt-out)** — the scripts are inert until a
-  runtime is present, so a scaffolded repo carries the deterministic gate without
-  inheriting a toolchain it is forced to run. Pass `doc_only=true` to skip them.
-  The L2 CI workflow and local pre-commit hook are a separate **opt-in**
-  (`ci_hook=true`) — they touch shared infrastructure (a CI runner, a
-  contributor's git config) rather than staying inert inside the repo, so they
-  don't get the same opt-out default as the scripts. The L2.5 agent-hooks config
-  (`.github/hooks/hooks.json`) is a further, independent **opt-in**
-  (`agent_hooks=true`) — it runs inside the agent's own session rather than
-  shared infrastructure, but still changes agent-session behavior, and its
-  scripts print plain-text banners rather than the JSON the hook runtime needs to
-  inject context, so it automates the trigger only (see decisions-log D-20).
+  executable layers are enhancements. Fixed artifacts come from the canonical
+  adoption-profile catalog. `doc-only` emits Layer 0, `standard` is the default
+  and adds the atomic L1/L3/L4 executable group plus manifests, and `full` adds
+  L2/L2.5 automation. Scripts remain inert until a runtime is present. The local
+  hook is never activated automatically, and agent hooks automate the trigger
+  only because their scripts print plain text rather than context-injection JSON.
 - **Location-agnostic ROOT discovery.** The four scripts that need the repo root
   (`validate-harness.mjs`, `session-start.mjs`, `session-end.mjs`,
   `backpressure-stats.mjs`) resolve it with an anchor-search (`findRepoRoot`):

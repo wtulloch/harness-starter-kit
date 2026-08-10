@@ -127,7 +127,7 @@ const REPAIR = {
   },
   'emit-contract': {
     class: 'repairable',
-    expected: 'Name the artifact in the generator contract surface reported above, alongside the others it already lists, so a generated target receives the whole harness rather than a partial one. If the artifact is infrastructure for building this repo and is never emitted, add it to REPO_LOCAL in harness-scripts/validate-harness.mjs instead.',
+    expected: 'Repair the canonical adoption-profiles.json catalog or make the reported generator surface reference it and its profile names. If the artifact is infrastructure for building this repo and is never emitted, add it to REPO_LOCAL in harness-scripts/validate-harness.mjs instead.',
   },
 };
 const UNKNOWN_REPAIR = { class: 'repairable', expected: 'Resolve the reported problem, then re-run heal.' };

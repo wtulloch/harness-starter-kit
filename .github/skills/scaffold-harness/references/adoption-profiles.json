@@ -1,0 +1,179 @@
+{
+  "schemaVersion": 1,
+  "defaultProfile": "standard",
+  "atomicGroups": {
+    "executable-layer": [
+      "signature-script",
+      "validator-script",
+      "heal-script",
+      "session-start-script",
+      "session-end-script",
+      "backpressure-stats-script",
+      "guard-script",
+      "dispatcher-script",
+      "doctor-script",
+      "doctor-manifest",
+      "guards-manifest"
+    ]
+  },
+  "artifacts": {
+    "agents-brief": {
+      "source": "templates/AGENTS.md.template",
+      "target": "AGENTS.md",
+      "operation": "reconcile-template"
+    },
+    "progress-tracker": {
+      "source": "templates/PROGRESS.md.template",
+      "target": "PROGRESS.md",
+      "operation": "template"
+    },
+    "feature-ledger": {
+      "source": "templates/features.yml.template",
+      "target": "features.yml",
+      "operation": "template"
+    },
+    "incident-log": {
+      "source": "templates/incidents.jsonl.template",
+      "target": "harness/incidents.jsonl",
+      "operation": "template"
+    },
+    "gitignore-lines": {
+      "target": ".gitignore",
+      "operation": "append-lines",
+      "lines": [
+        ".copilot-tracking/",
+        ".env",
+        ".env.*",
+        "!.env.example"
+      ]
+    },
+    "gitattributes-lines": {
+      "target": ".gitattributes",
+      "operation": "append-lines",
+      "lines": [
+        "* text=auto eol=lf"
+      ]
+    },
+    "signature-script": {
+      "source": "harness-scripts/signature.mjs",
+      "target": "harness-scripts/signature.mjs",
+      "operation": "copy"
+    },
+    "validator-script": {
+      "source": "harness-scripts/validate-harness.mjs",
+      "target": "harness-scripts/validate-harness.mjs",
+      "operation": "copy"
+    },
+    "heal-script": {
+      "source": "harness-scripts/heal-harness.mjs",
+      "target": "harness-scripts/heal-harness.mjs",
+      "operation": "copy"
+    },
+    "session-start-script": {
+      "source": "harness-scripts/session-start.mjs",
+      "target": "harness-scripts/session-start.mjs",
+      "operation": "copy"
+    },
+    "session-end-script": {
+      "source": "harness-scripts/session-end.mjs",
+      "target": "harness-scripts/session-end.mjs",
+      "operation": "copy"
+    },
+    "backpressure-stats-script": {
+      "source": "harness-scripts/backpressure-stats.mjs",
+      "target": "harness-scripts/backpressure-stats.mjs",
+      "operation": "copy"
+    },
+    "guard-script": {
+      "source": "harness-scripts/guard.mjs",
+      "target": "harness-scripts/guard.mjs",
+      "operation": "copy"
+    },
+    "dispatcher-script": {
+      "source": "harness-scripts/harness.mjs",
+      "target": "harness-scripts/harness.mjs",
+      "operation": "copy"
+    },
+    "doctor-script": {
+      "source": "harness-scripts/doctor.mjs",
+      "target": "harness-scripts/doctor.mjs",
+      "operation": "copy"
+    },
+    "doctor-manifest": {
+      "source": "templates/doctor.yml.template",
+      "target": "harness/doctor.yml",
+      "operation": "template"
+    },
+    "guards-manifest": {
+      "source": "templates/guards.yml.template",
+      "target": "harness/guards.yml",
+      "operation": "template"
+    },
+    "validation-workflow": {
+      "source": ".github/workflows/validate.yml",
+      "target": ".github/workflows/validate.yml",
+      "operation": "copy"
+    },
+    "pre-commit-hook": {
+      "source": ".githooks/pre-commit",
+      "target": ".githooks/pre-commit",
+      "operation": "copy"
+    },
+    "agent-hooks-config": {
+      "source": ".github/hooks/hooks.json",
+      "target": ".github/hooks/hooks.json",
+      "operation": "copy"
+    }
+  },
+  "profiles": {
+    "doc-only": [
+      "agents-brief",
+      "progress-tracker",
+      "feature-ledger",
+      "incident-log",
+      "gitignore-lines",
+      "gitattributes-lines"
+    ],
+    "standard": [
+      "agents-brief",
+      "progress-tracker",
+      "feature-ledger",
+      "incident-log",
+      "gitignore-lines",
+      "gitattributes-lines",
+      "signature-script",
+      "validator-script",
+      "heal-script",
+      "session-start-script",
+      "session-end-script",
+      "backpressure-stats-script",
+      "guard-script",
+      "dispatcher-script",
+      "doctor-script",
+      "doctor-manifest",
+      "guards-manifest"
+    ],
+    "full": [
+      "agents-brief",
+      "progress-tracker",
+      "feature-ledger",
+      "incident-log",
+      "gitignore-lines",
+      "gitattributes-lines",
+      "signature-script",
+      "validator-script",
+      "heal-script",
+      "session-start-script",
+      "session-end-script",
+      "backpressure-stats-script",
+      "guard-script",
+      "dispatcher-script",
+      "doctor-script",
+      "doctor-manifest",
+      "guards-manifest",
+      "validation-workflow",
+      "pre-commit-hook",
+      "agent-hooks-config"
+    ]
+  }
+}

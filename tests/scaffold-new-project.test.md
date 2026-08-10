@@ -147,9 +147,12 @@ grep -qF 'eol=lf' .gitattributes
 
 ---
 
-## Stage 3 — Executable layer emitted by default (Phase 3b)
+## Stage 3 — Selected adoption profile emitted (Phase 3b)
 
-**Action**: Inspect what Phase 3b did (emitted by default; no `doc_only` opt-out given).
+**Action**: Inspect what Phase 3b did for the selected profile. The canonical
+fixed-artifact membership is
+[adoption-profiles.json](../.github/skills/scaffold-harness/references/adoption-profiles.json).
+Run this stage once with each profile: `doc-only`, default `standard`, and `full`.
 
 **Expected**:
 
@@ -166,10 +169,10 @@ grep -qF 'eol=lf' .gitattributes
 | `harness-scripts/doctor.mjs` + `harness/doctor.yml` | Emitted (by default, no opt-in flag); `node harness-scripts/harness.mjs doctor` hard-gates on required-tool presence — exit 0 with `OK: <tool>` lines when present, exit 1 with a `MISSING:` line when a required tool is absent |
 | `harness/guards.yml` | Emitted (by default, no opt-in flag); `node harness-scripts/harness.mjs guard` exits 0 with no trips recorded, and `heal-loop-cap` is declared at `enforce` so the AGENTS.md re-run cap is actually enforced |
 | `harness/incidents.jsonl` | Emitted (by default, no opt-in flag) as an **empty** file; `node harness-scripts/harness.mjs backpressure-stats` exits 0 reporting 0 signatures, and the review-session skill has a ledger to append to |
-| `.github/workflows/validate.yml` | Emitted; runs `node harness-scripts/validate-harness.mjs`, no install step |
-| `.githooks/pre-commit` | Emitted but **not** auto-enabled; opt-in `git config core.hooksPath .githooks` documented |
-| `.github/hooks/hooks.json` | Emitted only when `agent_hooks=true` opted in (separate from `ci_hook`); wires GitHub Copilot's `sessionStart`/`agentStop` to `session-start.mjs`/`session-end.mjs` |
-| `harness/state/demo-service/state.md` | Records the emit decision (**emitted** by default) |
+| `.github/workflows/validate.yml` | `full` only; runs `node harness-scripts/validate-harness.mjs`, no install step |
+| `.githooks/pre-commit` | `full` only; emitted but **not** auto-enabled; opt-in `git config core.hooksPath .githooks` documented |
+| `.github/hooks/hooks.json` | `full` only; wires GitHub Copilot's `sessionStart`/`agentStop` to `session-start.mjs`/`session-end.mjs` |
+| `harness/state/demo-service/state.md` | Records the selected profile when phase-aware state was requested |
 
 **Verify** (choose one shell):
 
@@ -196,14 +199,11 @@ grep -Eq 'executable|emit' harness/state/demo-service/state.md
 
 - **Result**: ☐ PASS ☐ FAIL
 
-> **Doc-only variant**: if the run opts out (`doc_only=true`), assert these
-> executable-layer files are **absent** and `state.md` records the layer as
-> **skipped (doc-only opt-out)**.
-
-> **Agent-hooks opt-in variant**: `.github/hooks/hooks.json` is a separate,
-> independent opt-in from `ci_hook` — default absent; present only when
-> `agent_hooks=true`. Assert `Test-Path .github\hooks\hooks.json` /
-> `test -f .github/hooks/hooks.json` is false by default and true once opted in.
+> **Profile matrix**: `doc-only` has none of the executable, workflow, or hook
+> artifacts. `standard` has the complete executable group and manifests, with
+> workflow and hooks absent. `full` contains every `standard` artifact plus the
+> workflow, pre-commit hook, and agent-hooks config. The pre-commit hook remains
+> inactive in every case.
 
 ---
 
