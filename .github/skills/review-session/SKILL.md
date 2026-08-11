@@ -146,4 +146,4 @@ high-severity postmortem unless asked.
 - Aggregation + recurrence gate: harness-scripts/backpressure-stats.mjs
 - Deterministic guardrails: harness-scripts/validate-harness.mjs
 - Incident log: harness/incidents.jsonl
-- Conventions: knowledge-base/conventions.md
+- Starter conventions: .github/skills/scaffold-harness/references/starter-harness/conventions.md

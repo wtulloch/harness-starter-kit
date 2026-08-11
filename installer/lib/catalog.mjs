@@ -54,6 +54,21 @@ export function loadCatalog() {
       if (count !== 0 && count !== groupIds.length) errors.push(`${profile} splits atomic group ${groupName}`);
     }
   }
+  const activeIds = new Set(Object.keys(catalog.artifacts ?? {}));
+  const activeTargets = new Set(Object.values(catalog.artifacts ?? {}).map((artifact) => artifact.target));
+  const retiredTargets = new Set();
+  for (const [id, artifact] of Object.entries(catalog.retiredArtifacts ?? {})) {
+    if (activeIds.has(id)) errors.push(`retired artifact ${id} is still active`);
+    if (!artifact?.target || artifact.ownership !== 'managed-file') {
+      errors.push(`retired artifact ${id} has invalid metadata`);
+      continue;
+    }
+    const target = resolve(PACKAGE_ROOT, artifact.target);
+    if (!isContained(PACKAGE_ROOT, target)) errors.push(`retired artifact ${id} target escapes package root`);
+    if (activeTargets.has(artifact.target)) errors.push(`retired artifact ${id} target is still active`);
+    if (retiredTargets.has(artifact.target)) errors.push(`retired artifact target ${artifact.target} is duplicated`);
+    retiredTargets.add(artifact.target);
+  }
   if (errors.length > 0) throw new Error(`Invalid adoption profile catalog: ${errors.join('; ')}`);
   return { catalog, raw, hash: sha256(raw) };
 }

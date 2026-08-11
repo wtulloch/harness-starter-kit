@@ -24,7 +24,11 @@ export function buildInstallation(plan, packageVersion) {
         ...(operation.lines ? { lines: operation.lines } : {}),
       })),
     migrations: plan.operations
-      .filter((operation) => operation.ownership === 'migration')
-      .map((operation) => ({ path: operation.path, sourceHash: operation.expectedHash })),
+      .filter((operation) => operation.ownership === 'migration' || operation.ownership === 'retirement')
+      .map((operation) => ({
+        path: operation.path,
+        ...(operation.retiredId ? { retiredId: operation.retiredId } : {}),
+        ...(operation.expectedHash ? { sourceHash: operation.expectedHash } : {}),
+      })),
   };
 }

@@ -29,7 +29,7 @@ for initiative `${input:project-slug}`.
    off, or restart?"
 3. Inventory existing harness files (AGENTS.md, PROGRESS.md, features.yml,
    .github/instructions, .github/skills, .github/prompts, .github/agents,
-   knowledge-base, harness/state). Present ✅ present / ❌ missing. Do NOT
+   project-owned knowledge-base, harness/state). Present ✅ present / ❌ missing. Do NOT
    overwrite unless `${input:overwrite}` is true.
 4. Record the **AGENTS.md reconciliation state** — neither / `AGENTS.md` only /
    `.github/copilot-instructions.md` only / both — since it selects the Phase 3
@@ -62,7 +62,8 @@ Wait for explicit user confirmation before writing anything.
 Use the maintain-harness companion skill scaffold-harness to generate: AGENTS.md;
 .github/instructions/*.instructions.md; .github/skills/<name>/SKILL.md (include a
 harness-maintenance skill and the `review-session` self-healing skill);
-knowledge-base/ with index.md; .github/prompts/*; harness/incidents.jsonl (empty,
+project-owned knowledge-base/ with index.md; .github/prompts/*;
+harness/incidents.jsonl (empty,
 from templates/incidents.jsonl.template with its `{{! ... }}` header stripped).
 Seed the two-tier tracking default (`PROGRESS.md` + `features.yml`). Emit
 `harness/state/${input:project-slug}/state.md` (from templates/state.md.template)

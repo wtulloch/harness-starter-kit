@@ -1,6 +1,28 @@
 {
   "schemaVersion": 1,
   "defaultProfile": "standard",
+  "retiredArtifacts": {
+    "knowledge-architecture": {
+      "target": "knowledge-base/architecture.md",
+      "ownership": "managed-file"
+    },
+    "knowledge-conventions": {
+      "target": "knowledge-base/conventions.md",
+      "ownership": "managed-file"
+    },
+    "knowledge-glossary": {
+      "target": "knowledge-base/glossary.md",
+      "ownership": "managed-file"
+    },
+    "knowledge-index": {
+      "target": "knowledge-base/index.md",
+      "ownership": "managed-file"
+    },
+    "knowledge-toolchain-detection": {
+      "target": "knowledge-base/toolchain-detection.md",
+      "ownership": "managed-file"
+    }
+  },
   "atomicGroups": {
     "executable-layer": [
       "signature-script",
@@ -28,11 +50,10 @@
       "scaffold-harness-skill",
       "adoption-profiles-reference",
       "toolchain-detection-reference",
-      "knowledge-architecture",
-      "knowledge-conventions",
-      "knowledge-glossary",
-      "knowledge-index",
-      "knowledge-toolchain-detection",
+      "starter-harness-architecture-reference",
+      "starter-harness-conventions-reference",
+      "starter-harness-glossary-reference",
+      "starter-harness-index-reference",
       "agents-brief-template",
       "checkpoint-template",
       "doctor-template",
@@ -211,29 +232,24 @@
       "target": ".github/skills/scaffold-harness/references/toolchain-detection.md",
       "operation": "copy"
     },
-    "knowledge-architecture": {
-      "source": "knowledge-base/architecture.md",
-      "target": "knowledge-base/architecture.md",
+    "starter-harness-architecture-reference": {
+      "source": ".github/skills/scaffold-harness/references/starter-harness/architecture.md",
+      "target": ".github/skills/scaffold-harness/references/starter-harness/architecture.md",
       "operation": "copy"
     },
-    "knowledge-conventions": {
-      "source": "knowledge-base/conventions.md",
-      "target": "knowledge-base/conventions.md",
+    "starter-harness-conventions-reference": {
+      "source": ".github/skills/scaffold-harness/references/starter-harness/conventions.md",
+      "target": ".github/skills/scaffold-harness/references/starter-harness/conventions.md",
       "operation": "copy"
     },
-    "knowledge-glossary": {
-      "source": "knowledge-base/glossary.md",
-      "target": "knowledge-base/glossary.md",
+    "starter-harness-glossary-reference": {
+      "source": ".github/skills/scaffold-harness/references/starter-harness/glossary.md",
+      "target": ".github/skills/scaffold-harness/references/starter-harness/glossary.md",
       "operation": "copy"
     },
-    "knowledge-index": {
-      "source": "knowledge-base/index.md",
-      "target": "knowledge-base/index.md",
-      "operation": "copy"
-    },
-    "knowledge-toolchain-detection": {
-      "source": "knowledge-base/toolchain-detection.md",
-      "target": "knowledge-base/toolchain-detection.md",
+    "starter-harness-index-reference": {
+      "source": ".github/skills/scaffold-harness/references/starter-harness/index.md",
+      "target": ".github/skills/scaffold-harness/references/starter-harness/index.md",
       "operation": "copy"
     },
     "agents-brief-template": {
@@ -338,11 +354,10 @@
       "scaffold-harness-skill",
       "adoption-profiles-reference",
       "toolchain-detection-reference",
-      "knowledge-architecture",
-      "knowledge-conventions",
-      "knowledge-glossary",
-      "knowledge-index",
-      "knowledge-toolchain-detection",
+      "starter-harness-architecture-reference",
+      "starter-harness-conventions-reference",
+      "starter-harness-glossary-reference",
+      "starter-harness-index-reference",
       "agents-brief-template",
       "checkpoint-template",
       "doctor-template",

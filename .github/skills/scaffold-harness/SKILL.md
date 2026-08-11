@@ -59,7 +59,8 @@ For each missing target, emit from the corresponding template and substitute
 - harness/incidents.jsonl ← templates/incidents.jsonl.template (strip the `{{! ... }}` header; emit an empty log)
 - Optional checkpoints ← templates/checkpoint.md.template
 
-Also create: `knowledge-base/index.md` + body docs, path-scoped
+Also create project-owned `knowledge-base/index.md` + body docs tailored to the
+target repository, path-scoped
 `.github/instructions/*.instructions.md`, at least one maintenance skill (and the
 `review-session` self-healing skill), and reusable `.github/prompts/*.prompt.md`.
 Prefer the `/create-instruction`, `/create-skill`, `/create-prompt`,
@@ -165,7 +166,7 @@ List what was created vs skipped (already present), and how to invoke each piece
 
 ## References
 
-- Conventions: knowledge-base/conventions.md
-- Architecture: knowledge-base/architecture.md
+- Starter conventions: references/starter-harness/conventions.md
+- Starter architecture: references/starter-harness/architecture.md
 - Templates: templates/
 - Adoption profiles: references/adoption-profiles.json

@@ -55,7 +55,7 @@ export function inspectInstallation(options) {
   const plan = createPlan({ ...options, command: 'status' });
   const drift = [
     ...plan.conflicts,
-    ...plan.operations.filter((operation) => operation.type === 'write')
+    ...plan.operations.filter((operation) => operation.type === 'write' || operation.type === 'delete')
       .map((operation) => ({ path: operation.path, reason: 'owned content is missing or has an upstream update' })),
   ];
   return {

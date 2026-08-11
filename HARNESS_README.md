@@ -16,7 +16,8 @@ session. It is **not** a hardware harness or a software *test* harness; here the
 ## Three roles
 
 1. **Self-hosting** — this repo uses its own harness (see `AGENTS.md`,
-   `.github/`, `knowledge-base/`, `harness/state/`) to build and maintain itself.
+  `.github/skills/scaffold-harness/references/starter-harness/`, and
+  `harness/state/`) to build and maintain itself.
 2. **Generator** — the `build-harness` generator prompt scaffolds this same shape
    into other repos.
 3. **Installer** — the dependency-free `starter-harness` CLI installs and updates
@@ -36,7 +37,8 @@ session. It is **not** a hardware harness or a software *test* harness; here the
 | `.github/prompts/` | Reusable prompts (the `build-harness` generator prompt) |
 | `.github/skills/` | On-demand workflows (`maintain-harness`, `scaffold-harness`, `review-session`) |
 | `.github/agents/` | Personas (the `harness-builder` scaffolder) |
-| `knowledge-base/` | Curated reference docs |
+| `.github/skills/scaffold-harness/references/starter-harness/` | Starter-owned architecture, conventions, glossary, and index |
+| `knowledge-base/` | Project-owned generator output; absent in this source repo |
 | `templates/` | Files the generator prompt emits into target repos |
 | `installer/` | Package CLI, catalog planner, ownership manifest, and transactional executor |
 | `package.json` | Private Git package and `starter-harness` executable contract |
@@ -76,8 +78,8 @@ session. It is **not** a hardware harness or a software *test* harness; here the
   (detect & resume → gather → confirm → scaffold → validate → summarize) and only
   creates missing files unless you opt in to overwrite.
 - **Maintain an existing harness**: invoke the `maintain-harness` skill to audit
-  for bloat, prune `AGENTS.md`, verify `applyTo` globs, refresh knowledge-base
-  links, and archive completed tracking artifacts.
+  for bloat, prune `AGENTS.md`, verify `applyTo` globs, audit any project-owned
+  knowledge-base links, and archive completed tracking artifacts.
 - **Validate the scaffold flow**: run `node --test` for the automated suites, or
   follow [tests/scaffold-new-project.test.md](tests/scaffold-new-project.test.md),
   an end-to-end acceptance procedure that scaffolds this harness into a throwaway

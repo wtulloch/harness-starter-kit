@@ -47,7 +47,9 @@ not a nicety.
 
 ### 4. Refresh knowledge-base links
 
-- Confirm `knowledge-base/index.md` links resolve and cover the current docs.
+- If the project has a `knowledge-base/`, confirm its index and internal links
+  resolve and cover the project's current docs. Its shape is project-owned; the
+  directory may be absent.
 - Retire stale gotchas; link out to canonical docs instead of copying frequently
   changing content.
 
@@ -108,6 +110,6 @@ unless explicitly asked.
 
 ## References
 
-- Conventions: knowledge-base/conventions.md
-- Architecture: knowledge-base/architecture.md
+- Starter conventions: .github/skills/scaffold-harness/references/starter-harness/conventions.md
+- Starter architecture: .github/skills/scaffold-harness/references/starter-harness/architecture.md
 - Runtime-incident detection + capture: .github/skills/review-session/SKILL.md

@@ -176,7 +176,6 @@ function stageMirror(target) {
   for (const directory of [
     '.github/skills',
     '.github/instructions',
-    'knowledge-base',
     'templates',
     'harness-scripts',
     'installer',
@@ -251,6 +250,20 @@ test('npm package closure includes catalog sources and executable metadata', () 
   for (const path of requiredPaths) {
     assert.ok(packedFiles.has(path), `npm package is missing ${path}`);
   }
+  for (const path of [
+    '.github/skills/scaffold-harness/references/starter-harness/index.md',
+    '.github/skills/scaffold-harness/references/starter-harness/architecture.md',
+    '.github/skills/scaffold-harness/references/starter-harness/conventions.md',
+    '.github/skills/scaffold-harness/references/starter-harness/glossary.md',
+    '.github/skills/scaffold-harness/references/toolchain-detection.md',
+  ]) {
+    assert.ok(packedFiles.has(path), `npm package is missing starter reference ${path}`);
+  }
+  assert.equal(
+    [...packedFiles.keys()].some((path) => path.startsWith('knowledge-base/')),
+    false,
+    'npm package must not contain project-owned root knowledge-base files',
+  );
   assert.match(readFileSync(resolve(REPO_ROOT, binTarget), 'utf8'), /^#!\/usr\/bin\/env node\r?\n/);
 });
 

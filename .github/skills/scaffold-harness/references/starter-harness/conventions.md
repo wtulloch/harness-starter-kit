@@ -1,7 +1,9 @@
 # Conventions
 
-Authoring and file-path conventions for the starter engineering harness. These are the rules the
-`maintain-harness` skill audits against.
+Authoring and file-path conventions for the starter engineering harness. This is
+a starter-owned reference installed with the `scaffold-harness` skill. The
+target repository's own conventions belong in its project-owned
+`knowledge-base/`.
 
 ## Description is the discovery surface
 
@@ -78,9 +80,9 @@ was judged important enough to fix.
 
 When an incident is escalated to R2 (heuristic), move the rule into the
 `applyTo`-scoped instruction file governing the paths it applies to — for example
-[executable-layer.instructions.md](../.github/instructions/executable-layer.instructions.md)
+[executable-layer.instructions.md](../../../instructions/executable-layer.instructions.md)
 for `harness-scripts/` and `tests/`, or
-[tracking-files.instructions.md](../.github/instructions/tracking-files.instructions.md)
+[tracking-files.instructions.md](../../../instructions/tracking-files.instructions.md)
 for the root tracking tiers — then close the incident. Create a new scoped file if
 none governs those paths; never widen an existing `applyTo` to make a rule fit.
 

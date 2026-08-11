@@ -1,6 +1,8 @@
 # Architecture
 
-How the starter engineering harness primitives fit together and why.
+How the starter engineering harness primitives fit together and why. This is a
+starter-owned reference installed with the `scaffold-harness` skill; generated
+project architecture belongs in the target repository's `knowledge-base/`.
 
 ## The primitives
 
@@ -90,8 +92,9 @@ same way as the session store: a **personal accelerator**, never a tier.
   commands, and any fact a new contributor or a different agent would need must
   also land in committed tracking or the knowledge base. Memory may *mirror* such
   facts as a convenience; it may never be their only home.
-- See the session-start/session-end protocols in [AGENTS.md](../AGENTS.md) for the
-  read/write points, and the `maintain-harness` skill for the audit check.
+- See the session-start/session-end protocols in
+  [AGENTS.md](../../../../../AGENTS.md) for the read/write points, and the
+  `maintain-harness` skill for the audit check.
 
 ## Multi-stack (polyglot) repos
 

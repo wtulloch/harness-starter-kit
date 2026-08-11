@@ -65,6 +65,26 @@ async function runQuiet(options) {
   }
 }
 
+function addLegacyKnowledgeRecord(target, id = 'knowledge-index', content = '# Legacy starter knowledge\n') {
+  const relativePath = id === 'knowledge-index'
+    ? 'knowledge-base/index.md'
+    : `knowledge-base/${id.replace('knowledge-', '')}.md`;
+  const path = join(target, ...relativePath.split('/'));
+  mkdirSync(join(target, 'knowledge-base'), { recursive: true });
+  writeFileSync(path, content);
+  const manifestPath = join(target, 'harness', 'installation.yml');
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  manifest.artifacts.push({
+    id,
+    path: relativePath,
+    ownership: 'managed-file',
+    sourceHash: sha256(content),
+    installedHash: sha256(content),
+  });
+  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+  return { path, manifestPath };
+}
+
 test('plan resolves the catalog default without writing', () => {
   const { target, cleanup } = fixture();
   try {
@@ -116,8 +136,8 @@ test('standard omits the generator bootstrap and full includes its complete atom
       '.github/agents/harness-builder.agent.md',
       '.github/skills/scaffold-harness/SKILL.md',
       '.github/skills/scaffold-harness/references/adoption-profiles.json',
+      '.github/skills/scaffold-harness/references/starter-harness/index.md',
       '.github/instructions/customization-authoring.instructions.md',
-      'knowledge-base/index.md',
       'templates/AGENTS.md.template',
       'templates/state.md.template',
     ]) {
@@ -134,6 +154,18 @@ test('full plan rejects a partially present generator bootstrap', () => {
     writeFileSync(prompt, 'local prompt\n');
     const plan = createPlan({ command: 'plan', target, profile: 'full' });
     assert.match(plan.conflicts.map((item) => item.reason).join('\n'), /atomic group generator-bootstrap is partially present/);
+  } finally { cleanup(); }
+});
+
+test('full plan leaves an untracked project knowledge base untouched', () => {
+  const { target, cleanup } = fixture();
+  try {
+    mkdirSync(join(target, 'knowledge-base'));
+    writeFileSync(join(target, 'knowledge-base', 'index.md'), '# Project knowledge\n');
+    const plan = createPlan({ command: 'plan', target, profile: 'full' });
+    assert.equal(plan.conflicts.some((item) => item.path === 'knowledge-base/index.md'), false);
+    assert.equal(plan.operations.some((operation) => operation.path === 'knowledge-base/index.md'), false);
+    assert.equal(readFileSync(join(target, 'knowledge-base', 'index.md'), 'utf8'), '# Project knowledge\n');
   } finally { cleanup(); }
 });
 
@@ -257,7 +289,8 @@ test('update supports cumulative full upgrade and refuses downgrade', async () =
     assert.equal(existsSync(join(target, '.github', 'prompts', 'build-harness.prompt.md')), true);
     assert.equal(existsSync(join(target, '.github', 'agents', 'harness-builder.agent.md')), true);
     assert.equal(existsSync(join(target, '.github', 'skills', 'scaffold-harness', 'SKILL.md')), true);
-    assert.equal(existsSync(join(target, 'knowledge-base', 'index.md')), true);
+    assert.equal(existsSync(join(target, '.github', 'skills', 'scaffold-harness', 'references', 'starter-harness', 'index.md')), true);
+    assert.equal(existsSync(join(target, 'knowledge-base')), false);
     assert.equal(existsSync(join(target, 'templates', 'AGENTS.md.template')), true);
     assert.equal(JSON.parse(readFileSync(join(target, 'harness', 'installation.yml'))).profile, 'full');
     assert.equal(await runQuiet({ command: 'update', target, profile: 'full', yes: true, json: true, dryRun: false }), 0);
@@ -275,6 +308,68 @@ test('full update preserves a locally modified generator bootstrap file', async 
     const plan = createPlan({ command: 'update', target, profile: 'full' });
     assert.match(plan.conflicts.map((item) => item.reason).join('\n'), /locally modified/);
     assert.equal(readFileSync(prompt, 'utf8'), 'local edit\n');
+  } finally { cleanup(); }
+});
+
+test('full update retires unchanged legacy managed knowledge files', async () => {
+  const { target, cleanup } = fixture();
+  try {
+    await runQuiet({ command: 'init', target, profile: 'full', yes: true, json: true, dryRun: false });
+    const { path, manifestPath } = addLegacyKnowledgeRecord(target);
+    const plan = createPlan({ command: 'update', target, profile: 'full' });
+    assert.equal(plan.conflicts.length, 0);
+    assert.equal(plan.operations.some((operation) => operation.type === 'delete' && operation.path === 'knowledge-base/index.md'), true);
+
+    assert.equal(await runQuiet({ command: 'update', target, profile: 'full', yes: true, json: true, dryRun: false }), 0);
+    assert.equal(existsSync(path), false);
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    assert.equal(manifest.artifacts.some((artifact) => artifact.id === 'knowledge-index'), false);
+    assert.equal(manifest.migrations.some((migration) => migration.retiredId === 'knowledge-index'), true);
+    assert.equal(inspectInstallation({ target }).clean, true);
+  } finally { cleanup(); }
+});
+
+test('full update blocks retirement of a locally modified legacy knowledge file', async () => {
+  const { target, cleanup } = fixture();
+  try {
+    await runQuiet({ command: 'init', target, profile: 'full', yes: true, json: true, dryRun: false });
+    const { path } = addLegacyKnowledgeRecord(target);
+    writeFileSync(path, '# Project edit\n');
+    const plan = createPlan({ command: 'update', target, profile: 'full' });
+    assert.match(plan.conflicts.map((item) => item.reason).join('\n'), /retired managed file knowledge-index was locally modified/);
+    assert.equal(readFileSync(path, 'utf8'), '# Project edit\n');
+  } finally { cleanup(); }
+});
+
+test('full update retires an already absent legacy knowledge record', async () => {
+  const { target, cleanup } = fixture();
+  try {
+    await runQuiet({ command: 'init', target, profile: 'full', yes: true, json: true, dryRun: false });
+    const { path, manifestPath } = addLegacyKnowledgeRecord(target);
+    rmSync(path);
+    const plan = createPlan({ command: 'update', target, profile: 'full' });
+    assert.equal(plan.conflicts.length, 0);
+    assert.equal(plan.operations.some((operation) => operation.type === 'noop' && operation.retiredId === 'knowledge-index'), true);
+
+    assert.equal(await runQuiet({ command: 'update', target, profile: 'full', yes: true, json: true, dryRun: false }), 0);
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    assert.equal(manifest.artifacts.some((artifact) => artifact.id === 'knowledge-index'), false);
+  } finally { cleanup(); }
+});
+
+test('transaction rollback restores a retired legacy knowledge file and manifest', async () => {
+  const { target, cleanup } = fixture();
+  try {
+    await runQuiet({ command: 'init', target, profile: 'full', yes: true, json: true, dryRun: false });
+    const content = '# Legacy starter knowledge\n';
+    const { path, manifestPath } = addLegacyKnowledgeRecord(target, 'knowledge-index', content);
+    const manifestBefore = readFileSync(manifestPath, 'utf8');
+    const plan = createPlan({ command: 'update', target, profile: 'full' });
+    const manifestText = JSON.stringify(buildInstallation(plan, '0.1.0'), null, 2) + '\n';
+
+    assert.throws(() => executePlan(plan, manifestText, { failAfter: 1 }), /Injected transaction failure/);
+    assert.equal(readFileSync(path, 'utf8'), content);
+    assert.equal(readFileSync(manifestPath, 'utf8'), manifestBefore);
   } finally { cleanup(); }
 });
 

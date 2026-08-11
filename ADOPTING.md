@@ -71,7 +71,9 @@ unavailable executable validator and doctor.
 
 The installer owns only catalog-defined artifacts. The generator remains
 responsible for interviewing you and creating project-specific instructions,
-skills, prompts, agents, knowledge-base content, and phase-aware state.
+skills, prompts, agents, project-owned knowledge-base content, and phase-aware
+state. Starter architecture, conventions, and glossary references remain under
+`.github/skills/scaffold-harness/references/starter-harness/`.
 
 ### Package troubleshooting
 
@@ -138,7 +140,8 @@ The generator reads that catalog directly:
 - `full` adds the validation workflow, inert local pre-commit hook, GitHub
    Copilot agent-hooks configuration, and the complete `/build-harness`
    bootstrap: prompt, bound agent, instructions, skills and references,
-   knowledge base, and templates.
+   starter-owned references, and templates. The generator creates project-owned
+   `knowledge-base/` content after its interview and confirmation gate.
 
 Profiles are cumulative. Re-running with a larger profile tops up missing files
 without replacing existing content unless `overwrite=true` was approved. The

@@ -23,9 +23,9 @@ Key directories:
 
 - `.github/instructions/` — path-scoped + on-demand `*.instructions.md` rules.
 - `.github/prompts/`      — reusable `*.prompt.md` task templates (the generator prompt).
-- `.github/skills/`       — on-demand `SKILL.md` workflows.
+- `.github/skills/`       — on-demand workflows and bundled starter references.
 - `.github/agents/`       — `*.agent.md` personas (the `harness-builder`).
-- `knowledge-base/`       — curated reference docs (link here, don't inline).
+- `knowledge-base/`       — project-owned generator output; absent in this source repo.
 - `templates/`            — files the generator prompt emits into target repos.
 - `harness/state/`        — committed per-initiative `state.md` (durable tracking).
 - `.copilot-tracking/`    — ephemeral RPI scratch (research/plans/changes); **gitignored**.
@@ -162,7 +162,7 @@ user opts in to overwrite. Schemas and per-file rules live in
 
 ## Where deeper knowledge lives (pointers)
 
-- Knowledge base: [knowledge-base/index.md](knowledge-base/index.md).
+- Starter harness references: [.github/skills/scaffold-harness/references/starter-harness/index.md](.github/skills/scaffold-harness/references/starter-harness/index.md).
 - Harness-maintenance workflow: [.github/skills/maintain-harness/SKILL.md](.github/skills/maintain-harness/SKILL.md).
 - Backpressure / self-healing workflow: [.github/skills/review-session/SKILL.md](.github/skills/review-session/SKILL.md).
 - Scaffold-into-a-repo workflow: [.github/skills/scaffold-harness/SKILL.md](.github/skills/scaffold-harness/SKILL.md).

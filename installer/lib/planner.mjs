@@ -113,6 +113,34 @@ export function createPlan(options) {
   const operations = [];
   const values = projectValues(target, options);
   const installedById = new Map((installation?.artifacts ?? []).map((item) => [item.id, item]));
+  const activeIds = new Set(artifacts.map((artifact) => artifact.id));
+
+  for (const installedRecord of installation?.artifacts ?? []) {
+    const retired = catalog.retiredArtifacts?.[installedRecord.id];
+    if (activeIds.has(installedRecord.id) || !retired) continue;
+    if (installedRecord.ownership !== 'managed-file' || installedRecord.path !== retired.target) {
+      conflicts.push({ path: installedRecord.path, reason: `retired artifact ${installedRecord.id} has inconsistent ownership metadata` });
+      continue;
+    }
+    const path = safeTarget(target, retired.target);
+    const current = readOptional(path);
+    if (current === null) {
+      operations.push({ retiredId: installedRecord.id, type: 'noop', path: retired.target, ownership: 'retirement' });
+      continue;
+    }
+    if (!installedRecord.installedHash || sha256(current) !== installedRecord.installedHash) {
+      conflicts.push({ path: retired.target, reason: `retired managed file ${installedRecord.id} was locally modified` });
+      operations.push({ retiredId: installedRecord.id, type: 'conflict', path: retired.target, ownership: 'retirement' });
+      continue;
+    }
+    operations.push({
+      retiredId: installedRecord.id,
+      type: 'delete',
+      path: retired.target,
+      ownership: 'retirement',
+      expectedHash: installedRecord.installedHash,
+    });
+  }
 
   for (const [group, groupIds] of Object.entries(catalog.atomicGroups ?? {})) {
     const selected = groupIds.every((id) => artifacts.some((artifact) => artifact.id === id));

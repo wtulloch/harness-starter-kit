@@ -1,6 +1,7 @@
 # Glossary
 
-Terms used across the starter engineering harness.
+Starter-owned terms used across the starter engineering harness. Generated
+projects may keep their own domain glossary in project-owned `knowledge-base/`.
 
 **Engineering harness  (harness engineering)** — The collection of
 committed, in-repo scaffolding (AGENTS.md, instructions, skills, knowledge base,
