@@ -114,12 +114,12 @@ export function createPlan(options) {
   const values = projectValues(target, options);
   const installedById = new Map((installation?.artifacts ?? []).map((item) => [item.id, item]));
 
-  for (const groupIds of Object.values(catalog.atomicGroups ?? {})) {
+  for (const [group, groupIds] of Object.entries(catalog.atomicGroups ?? {})) {
     const selected = groupIds.every((id) => artifacts.some((artifact) => artifact.id === id));
     if (!selected) continue;
     const present = groupIds.filter((id) => existsSync(safeTarget(target, catalog.artifacts[id].target)));
     if (!installation && present.length > 0 && present.length < groupIds.length) {
-      conflicts.push({ path: 'harness-scripts/', reason: 'executable atomic group is partially present' });
+      conflicts.push({ path: catalog.artifacts[present[0]].target, reason: `atomic group ${group} is partially present` });
     }
   }
 

@@ -56,6 +56,11 @@ session. It is **not** a hardware harness or a software *test* harness; here the
   and append the installer's `--yes`. The leading `npx --yes` accepts npm's
   remote-package prompt; a trailing `--yes` after `init` or `update` authorizes
   the installer mutation.
+- **Install the generator without copying files**: use the same pinned package
+  with `init --target . --profile full --yes`, then reload the target workspace
+  in VS Code and run `/build-harness project-slug=<slug> profile=full
+  overwrite=false`. The `full` profile installs the prompt, bound agent, skills,
+  instructions, knowledge base, and templates needed by the generator.
 - **Try mutable main**: after remote acceptance, the convenience form
   `npx --yes github:wtulloch/harness-starter-kit plan --target . --profile standard`
   follows mutable `main` and is not reproducible. Public repositories need no Git
@@ -65,8 +70,9 @@ session. It is **not** a hardware harness or a software *test* harness; here the
 - **Adopt the harness into your repo**: see [ADOPTING.md](ADOPTING.md) — a
   quickstart for the full GitHub package workflow, authentication, pinning, and
   clone or explicit `npm exec --package` troubleshooting fallbacks.
-- **Scaffold a harness into a repo**: run the `/build-harness` prompt (binds to the
-  `harness-builder` agent). It walks a resumable, idempotent 6-phase flow
+- **Scaffold a harness into a repo**: after a full-profile installation, run the
+  `/build-harness` prompt (binds to the `harness-builder` agent). It walks a
+  resumable, idempotent 6-phase flow
   (detect & resume → gather → confirm → scaffold → validate → summarize) and only
   creates missing files unless you opt in to overwrite.
 - **Maintain an existing harness**: invoke the `maintain-harness` skill to audit

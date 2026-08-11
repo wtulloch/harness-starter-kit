@@ -14,6 +14,33 @@
       "doctor-script",
       "doctor-manifest",
       "guards-manifest"
+    ],
+    "generator-bootstrap": [
+      "build-harness-prompt",
+      "harness-builder-agent",
+      "customization-authoring-instructions",
+      "executable-layer-instructions",
+      "harness-conventions-instructions",
+      "tracking-files-instructions",
+      "maintain-harness-skill",
+      "review-session-skill",
+      "writing-validator-check-reference",
+      "scaffold-harness-skill",
+      "adoption-profiles-reference",
+      "toolchain-detection-reference",
+      "knowledge-architecture",
+      "knowledge-conventions",
+      "knowledge-glossary",
+      "knowledge-index",
+      "knowledge-toolchain-detection",
+      "agents-brief-template",
+      "checkpoint-template",
+      "doctor-template",
+      "features-template",
+      "guards-template",
+      "incidents-template",
+      "progress-template",
+      "state-template"
     ]
   },
   "artifacts": {
@@ -123,6 +150,131 @@
       "source": ".github/hooks/hooks.json",
       "target": ".github/hooks/hooks.json",
       "operation": "copy"
+    },
+    "build-harness-prompt": {
+      "source": ".github/prompts/build-harness.prompt.md",
+      "target": ".github/prompts/build-harness.prompt.md",
+      "operation": "copy"
+    },
+    "harness-builder-agent": {
+      "source": ".github/agents/harness-builder.agent.md",
+      "target": ".github/agents/harness-builder.agent.md",
+      "operation": "copy"
+    },
+    "customization-authoring-instructions": {
+      "source": ".github/instructions/customization-authoring.instructions.md",
+      "target": ".github/instructions/customization-authoring.instructions.md",
+      "operation": "copy"
+    },
+    "executable-layer-instructions": {
+      "source": ".github/instructions/executable-layer.instructions.md",
+      "target": ".github/instructions/executable-layer.instructions.md",
+      "operation": "copy"
+    },
+    "harness-conventions-instructions": {
+      "source": ".github/instructions/harness-conventions.instructions.md",
+      "target": ".github/instructions/harness-conventions.instructions.md",
+      "operation": "copy"
+    },
+    "tracking-files-instructions": {
+      "source": ".github/instructions/tracking-files.instructions.md",
+      "target": ".github/instructions/tracking-files.instructions.md",
+      "operation": "copy"
+    },
+    "maintain-harness-skill": {
+      "source": ".github/skills/maintain-harness/SKILL.md",
+      "target": ".github/skills/maintain-harness/SKILL.md",
+      "operation": "copy"
+    },
+    "review-session-skill": {
+      "source": ".github/skills/review-session/SKILL.md",
+      "target": ".github/skills/review-session/SKILL.md",
+      "operation": "copy"
+    },
+    "writing-validator-check-reference": {
+      "source": ".github/skills/review-session/references/writing-a-validator-check.md",
+      "target": ".github/skills/review-session/references/writing-a-validator-check.md",
+      "operation": "copy"
+    },
+    "scaffold-harness-skill": {
+      "source": ".github/skills/scaffold-harness/SKILL.md",
+      "target": ".github/skills/scaffold-harness/SKILL.md",
+      "operation": "copy"
+    },
+    "adoption-profiles-reference": {
+      "source": ".github/skills/scaffold-harness/references/adoption-profiles.json",
+      "target": ".github/skills/scaffold-harness/references/adoption-profiles.json",
+      "operation": "copy"
+    },
+    "toolchain-detection-reference": {
+      "source": ".github/skills/scaffold-harness/references/toolchain-detection.md",
+      "target": ".github/skills/scaffold-harness/references/toolchain-detection.md",
+      "operation": "copy"
+    },
+    "knowledge-architecture": {
+      "source": "knowledge-base/architecture.md",
+      "target": "knowledge-base/architecture.md",
+      "operation": "copy"
+    },
+    "knowledge-conventions": {
+      "source": "knowledge-base/conventions.md",
+      "target": "knowledge-base/conventions.md",
+      "operation": "copy"
+    },
+    "knowledge-glossary": {
+      "source": "knowledge-base/glossary.md",
+      "target": "knowledge-base/glossary.md",
+      "operation": "copy"
+    },
+    "knowledge-index": {
+      "source": "knowledge-base/index.md",
+      "target": "knowledge-base/index.md",
+      "operation": "copy"
+    },
+    "knowledge-toolchain-detection": {
+      "source": "knowledge-base/toolchain-detection.md",
+      "target": "knowledge-base/toolchain-detection.md",
+      "operation": "copy"
+    },
+    "agents-brief-template": {
+      "source": "templates/AGENTS.md.template",
+      "target": "templates/AGENTS.md.template",
+      "operation": "copy"
+    },
+    "checkpoint-template": {
+      "source": "templates/checkpoint.md.template",
+      "target": "templates/checkpoint.md.template",
+      "operation": "copy"
+    },
+    "doctor-template": {
+      "source": "templates/doctor.yml.template",
+      "target": "templates/doctor.yml.template",
+      "operation": "copy"
+    },
+    "features-template": {
+      "source": "templates/features.yml.template",
+      "target": "templates/features.yml.template",
+      "operation": "copy"
+    },
+    "guards-template": {
+      "source": "templates/guards.yml.template",
+      "target": "templates/guards.yml.template",
+      "operation": "copy"
+    },
+    "incidents-template": {
+      "source": "templates/incidents.jsonl.template",
+      "target": "templates/incidents.jsonl.template",
+      "operation": "copy"
+    },
+    "progress-template": {
+      "source": "templates/PROGRESS.md.template",
+      "target": "templates/PROGRESS.md.template",
+      "operation": "copy"
+    },
+    "state-template": {
+      "source": "templates/state.md.template",
+      "target": "templates/state.md.template",
+      "operation": "copy"
     }
   },
   "profiles": {
@@ -173,7 +325,32 @@
       "guards-manifest",
       "validation-workflow",
       "pre-commit-hook",
-      "agent-hooks-config"
+      "agent-hooks-config",
+      "build-harness-prompt",
+      "harness-builder-agent",
+      "customization-authoring-instructions",
+      "executable-layer-instructions",
+      "harness-conventions-instructions",
+      "tracking-files-instructions",
+      "maintain-harness-skill",
+      "review-session-skill",
+      "writing-validator-check-reference",
+      "scaffold-harness-skill",
+      "adoption-profiles-reference",
+      "toolchain-detection-reference",
+      "knowledge-architecture",
+      "knowledge-conventions",
+      "knowledge-glossary",
+      "knowledge-index",
+      "knowledge-toolchain-detection",
+      "agents-brief-template",
+      "checkpoint-template",
+      "doctor-template",
+      "features-template",
+      "guards-template",
+      "incidents-template",
+      "progress-template",
+      "state-template"
     ]
   }
 }

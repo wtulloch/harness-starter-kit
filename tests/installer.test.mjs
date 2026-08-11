@@ -98,7 +98,42 @@ test('plan rejects a partially present executable group', () => {
     mkdirSync(join(target, 'harness-scripts'));
     writeFileSync(join(target, 'harness-scripts', 'signature.mjs'), 'local');
     const plan = createPlan({ command: 'plan', target });
-    assert.match(plan.conflicts.map((item) => item.reason).join('\n'), /atomic group is partially present/);
+    assert.match(plan.conflicts.map((item) => item.reason).join('\n'), /atomic group executable-layer is partially present/);
+  } finally { cleanup(); }
+});
+
+test('standard omits the generator bootstrap and full includes its complete atomic group', () => {
+  const { target, cleanup } = fixture();
+  try {
+    const standard = createPlan({ command: 'plan', target, profile: 'standard' });
+    const full = createPlan({ command: 'plan', target, profile: 'full' });
+    const standardPaths = new Set(standard.operations.map((operation) => operation.path));
+    const fullPaths = new Set(full.operations.map((operation) => operation.path));
+    assert.equal(standardPaths.has('.github/prompts/build-harness.prompt.md'), false);
+    assert.equal(standardPaths.has('templates/AGENTS.md.template'), false);
+    for (const path of [
+      '.github/prompts/build-harness.prompt.md',
+      '.github/agents/harness-builder.agent.md',
+      '.github/skills/scaffold-harness/SKILL.md',
+      '.github/skills/scaffold-harness/references/adoption-profiles.json',
+      '.github/instructions/customization-authoring.instructions.md',
+      'knowledge-base/index.md',
+      'templates/AGENTS.md.template',
+      'templates/state.md.template',
+    ]) {
+      assert.equal(fullPaths.has(path), true, `full profile is missing ${path}`);
+    }
+  } finally { cleanup(); }
+});
+
+test('full plan rejects a partially present generator bootstrap', () => {
+  const { target, cleanup } = fixture();
+  try {
+    const prompt = join(target, '.github', 'prompts', 'build-harness.prompt.md');
+    mkdirSync(join(target, '.github', 'prompts'), { recursive: true });
+    writeFileSync(prompt, 'local prompt\n');
+    const plan = createPlan({ command: 'plan', target, profile: 'full' });
+    assert.match(plan.conflicts.map((item) => item.reason).join('\n'), /atomic group generator-bootstrap is partially present/);
   } finally { cleanup(); }
 });
 
@@ -219,8 +254,27 @@ test('update supports cumulative full upgrade and refuses downgrade', async () =
     const code = await runQuiet({ command: 'update', target, profile: 'full', yes: true, json: true, dryRun: false });
     assert.equal(code, 0);
     assert.equal(existsSync(join(target, '.github', 'workflows', 'validate.yml')), true);
+    assert.equal(existsSync(join(target, '.github', 'prompts', 'build-harness.prompt.md')), true);
+    assert.equal(existsSync(join(target, '.github', 'agents', 'harness-builder.agent.md')), true);
+    assert.equal(existsSync(join(target, '.github', 'skills', 'scaffold-harness', 'SKILL.md')), true);
+    assert.equal(existsSync(join(target, 'knowledge-base', 'index.md')), true);
+    assert.equal(existsSync(join(target, 'templates', 'AGENTS.md.template')), true);
     assert.equal(JSON.parse(readFileSync(join(target, 'harness', 'installation.yml'))).profile, 'full');
+    assert.equal(await runQuiet({ command: 'update', target, profile: 'full', yes: true, json: true, dryRun: false }), 0);
+    assert.equal(inspectInstallation({ target }).clean, true);
     assert.throws(() => createPlan({ command: 'update', target, profile: 'standard' }), /downgrade/);
+  } finally { cleanup(); }
+});
+
+test('full update preserves a locally modified generator bootstrap file', async () => {
+  const { target, cleanup } = fixture();
+  try {
+    await runQuiet({ command: 'init', target, profile: 'full', yes: true, json: true, dryRun: false });
+    const prompt = join(target, '.github', 'prompts', 'build-harness.prompt.md');
+    writeFileSync(prompt, 'local edit\n');
+    const plan = createPlan({ command: 'update', target, profile: 'full' });
+    assert.match(plan.conflicts.map((item) => item.reason).join('\n'), /locally modified/);
+    assert.equal(readFileSync(prompt, 'utf8'), 'local edit\n');
   } finally { cleanup(); }
 });
 

@@ -12,11 +12,15 @@
   },
   "files": [
     "installer/",
+    ".github/agents/",
     ".github/hooks/hooks.json",
-    ".github/skills/scaffold-harness/references/adoption-profiles.json",
+    ".github/instructions/",
+    ".github/prompts/",
+    ".github/skills/",
     ".github/workflows/validate.yml",
     ".githooks/pre-commit",
     "harness-scripts/",
+    "knowledge-base/",
     "templates/"
   ],
   "scripts": {

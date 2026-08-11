@@ -17,9 +17,10 @@ your own repository. For what a harness is and how the pieces compose, see
 
 ## Package installer
 
-Use the GitHub-hosted `starter-harness` package when you want the deterministic
-fixed profile core without adding a dependency to the target repository. The
-repository is not published to the npm registry.
+Use the GitHub-hosted `starter-harness` package to install the deterministic
+profile core without adding a dependency to the target repository. The `full`
+profile also installs the complete generator bootstrap, so no starter files need
+to be copied manually. The repository is not published to the npm registry.
 
 > [!IMPORTANT]
 > The remote channel has not yet passed acceptance. The stable examples below
@@ -68,9 +69,9 @@ instructions verbatim before deleting the old file and runs baseline validation.
 The `doc-only` profile validates installer ownership but intentionally skips the
 unavailable executable validator and doctor.
 
-The package installs only the catalog-defined fixed core. Use the generator flow
-below when you also want project-specific instructions, skills, prompts, agents,
-knowledge-base content, or phase-aware state.
+The installer owns only catalog-defined artifacts. The generator remains
+responsible for interviewing you and creating project-specific instructions,
+skills, prompts, agents, knowledge-base content, and phase-aware state.
 
 ### Package troubleshooting
 
@@ -95,28 +96,31 @@ registry credentials does not repair GitHub Git authentication. After a successf
 plan, run `init` against the same checkout and target, adding the installer's
 trailing `--yes` only when you are ready to write.
 
-## Option A — Generate into your repo (recommended)
+## Generate into your repo
 
-1. Copy this repo's `.github/prompts/build-harness.prompt.md`,
-   `.github/agents/harness-builder.agent.md`, `.github/skills/`, and `templates/`
-   into your target repo (or open your repo in a workspace alongside this one).
-   The complete Git package mirror at
-   [wtulloch/harness-starter-kit](https://github.com/wtulloch/harness-starter-kit)
-   carries the same generator surface if you prefer an inspected clone.
-2. Run the generator prompt:
+1. Plan and initialize the `full` profile with the same pinned package commit:
 
+   ```bash
+   npx --yes "github:wtulloch/harness-starter-kit#<TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE>" plan --target . --profile full
+   npx --yes "github:wtulloch/harness-starter-kit#<TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE>" init --target . --profile full --yes
    ```
-   /build-harness project-slug=my-service
+
+2. Open or reload the target workspace in VS Code so customization discovery
+   sees the installed prompt and agent.
+3. Run the generator prompt:
+
+   ```text
+   /build-harness project-slug=my-service profile=full overwrite=false
    ```
 
    Optional inputs: `stack=...` to tailor instructions, `overwrite=false`
    (default) to keep adoption non-destructive, and
    `profile={doc-only|standard|full}`. `standard` is the default.
-3. Answer the short interview (purpose, stack, build/test commands, conventions,
+4. Answer the short interview (purpose, stack, build/test commands, conventions,
    desired skills). The generator seeds answers from your README / package manifest.
-4. Review the file plan at the **Phase 2 confirm gate** — nothing is written until
+5. Review the file plan at the **Phase 2 confirm gate** — nothing is written until
    you approve.
-5. The generator scaffolds only missing files (create-missing-only), then validates
+6. The generator scaffolds only missing files (create-missing-only), then validates
    and summarizes what it created and how to invoke each piece.
 
 The flow is **resumable and idempotent**: re-running tops up genuinely missing
@@ -131,16 +135,19 @@ The generator reads that catalog directly:
 - `doc-only` emits the fixed Layer 0 foundation with no executable artifacts.
 - `standard` is the default and adds the complete executable group plus doctor
    and guard manifests.
-- `full` adds the validation workflow, inert local pre-commit hook, and GitHub
-   Copilot agent-hooks configuration.
+- `full` adds the validation workflow, inert local pre-commit hook, GitHub
+   Copilot agent-hooks configuration, and the complete `/build-harness`
+   bootstrap: prompt, bound agent, instructions, skills and references,
+   knowledge base, and templates.
 
 Profiles are cumulative. Re-running with a larger profile tops up missing files
 without replacing existing content unless `overwrite=true` was approved. The
 executable group is atomic and is never partially emitted.
 
-## Option B — Copy templates manually
+## Manual fallback
 
-If you'd rather not run the generator, emit the baseline by hand from `templates/`:
+Use the inspected-clone troubleshooting path above when npx cannot execute the Git
+package. Manual template copying remains available for constrained environments:
 
 | Emit to | From template | Notes |
 |---------|---------------|-------|

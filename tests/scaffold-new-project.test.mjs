@@ -248,7 +248,6 @@ try {
   // Stage 4a2 — a valid .github/hooks/hooks.json (Check 13) still validates clean.
   emitFromSource(target, '.github/hooks/hooks.json');
   const vHooks = runNode(target, 'harness-scripts/validate-harness.mjs');
-  rmSync(join(target, '.github', 'hooks', 'hooks.json'));
   check('validator-hooks-config-clean', vHooks.code === 0, `exit ${vHooks.code}${vHooks.stderr ? ' — ' + vHooks.stderr.trim() : ''}`);
 
   // Doctor pattern — the seeded git-required manifest runs clean (exit 0, `OK: git`).
@@ -756,10 +755,9 @@ try {
     });
 
   // --- Check 13 — hooks-config negative cases (malformed JSON, missing
-  // "version", missing "hooks", dangling harness-scripts/*.mjs reference). The fixture
-  // never emits .github/hooks/hooks.json itself (it's a separate opt-in), so
-  // each case creates then removes it. ------------------------------------------
+  // "version", missing "hooks", dangling harness-scripts/*.mjs reference). ------
   const hooksConfig = join(target, '.github', 'hooks', 'hooks.json');
+  const originalHooksConfig = readFileSync(hooksConfig, 'utf8');
   expectFail('validator-hooks-config-badjson-negative', 'hooks-config', hooksConfig,
     () => {
       mkdirSync(dirname(hooksConfig), { recursive: true });
@@ -811,7 +809,7 @@ try {
     },
   }));
   const vHooksPascal = runNode(target, 'harness-scripts/validate-harness.mjs');
-  rmSync(hooksConfig, { force: true });
+  writeFileSync(hooksConfig, originalHooksConfig);
   check('validator-hooks-config-pascalcase-clean', vHooksPascal.code === 0,
     `exit ${vHooksPascal.code}${vHooksPascal.stderr ? ' — ' + vHooksPascal.stderr.trim() : ''}`);
 
@@ -1012,9 +1010,10 @@ try {
   expectFail('validator-emit-contract-unlisted-workflow-negative', 'emit-contract', unknownWorkflow,
     () => writeFileSync(unknownWorkflow, 'name: unknown-repo-local\n'));
 
+  writeFileSync(join(target, 'harness', 'installation.yml'), '{}\n');
   const vEmit = runNode(target, 'harness-scripts/validate-harness.mjs');
   rmSync(join(target, '.github', 'skills', 'scaffold-harness'), { recursive: true, force: true });
-  check('validator-emit-contract-clean', vEmit.code === 0,
+  check('validator-emit-contract-allows-installation-manifest', vEmit.code === 0,
     `exit ${vEmit.code}${vEmit.stderr ? ' — ' + vEmit.stderr.trim() : ''}`);
 } finally {
   if (target) rmSync(target, { recursive: true, force: true });

@@ -764,6 +764,7 @@ const CONTRACT_FILES = [
 const REPO_LOCAL = new Set([
   '.github/workflows/self-test.yml',
   '.github/workflows/sync-starter-kit.yml',
+  'harness/installation.yml',
 ]);
 /** Files directly inside `dir` (no recursion — subtrees are per-repo content). */
 const topLevelFiles = (dir) => {
