@@ -28,7 +28,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const TPL = join(ROOT, 'templates');
 const PROFILE_CATALOG_PATH = join(ROOT, '.github', 'skills', 'scaffold-harness', 'references', 'adoption-profiles.json');
 const PROFILE_CATALOG = JSON.parse(readFileSync(PROFILE_CATALOG_PATH, 'utf8'));
 
@@ -96,7 +95,7 @@ const emit = (target, rel, text) => {
   writeFileSync(full, text);
 };
 const emitFromTemplate = (target, rel, tplRel, { substitute = true } = {}) => {
-  const raw = readFileSync(join(TPL, tplRel), 'utf8');
+  const raw = readFileSync(join(ROOT, tplRel), 'utf8');
   // Generator headers are stripped on emit, not substituted — leaving them to the
   // placeholder pass would put junk lines at the top of every emitted manifest.
   const stripped = raw.split(/\r?\n/).filter((line) => !/^\s*\{\{!.*\}\}\s*$/.test(line)).join('\n');
@@ -121,7 +120,7 @@ const emitProfile = (target, profile = PROFILE_CATALOG.defaultProfile) => {
     if (artifact.operation === 'copy') {
       emitFromSource(target, artifact.target);
     } else if (artifact.operation === 'template' || artifact.operation === 'reconcile-template') {
-      emitFromTemplate(target, artifact.target, artifact.source.replace(/^templates\//, ''));
+      emitFromTemplate(target, artifact.target, artifact.source);
     } else if (artifact.operation === 'append-lines') {
       emit(target, artifact.target, `${artifact.lines.join('\n')}\n`);
     }
@@ -136,7 +135,8 @@ function scaffoldFixture(profile = PROFILE_CATALOG.defaultProfile) {
   emitProfile(target, profile);
 
   // Phase-aware state is procedural and deliberately outside fixed profiles.
-  emitFromTemplate(target, 'harness/state/demo-service/state.md', 'state.md.template');
+  emitFromTemplate(target, 'harness/state/demo-service/state.md',
+    PROFILE_CATALOG.artifacts['scaffold-state-template'].source);
 
   // Agent-authored files the generator writes (not template-copied) — minimal
   // valid stubs so the doc-harness assertions have something real to check.
@@ -1144,7 +1144,7 @@ try {
 
   // The managed block the scaffold injects, sliced verbatim from the template so
   // its sentinels + headings match exactly what Check 17 asserts.
-  const tplAgents = readFileSync(join(TPL, 'AGENTS.md.template'), 'utf8');
+  const tplAgents = readFileSync(join(ROOT, PROFILE_CATALOG.artifacts['agents-brief'].source), 'utf8');
   const BEGIN = '<!-- HARNESS:BEGIN (managed by scaffold-harness — edits inside are overwritten) -->';
   const END = '<!-- HARNESS:END -->';
   const MANAGED_BLOCK = tplAgents.slice(tplAgents.indexOf(BEGIN), tplAgents.indexOf(END) + END.length);

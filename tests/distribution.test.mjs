@@ -176,7 +176,6 @@ function stageMirror(target) {
   for (const directory of [
     '.github/skills',
     '.github/instructions',
-    'templates',
     'harness-scripts',
     'installer',
     'tests',
@@ -202,10 +201,11 @@ function stageMirror(target) {
     cpSync(resolve(REPO_ROOT, file), destination);
   }
   cpSync(resolve(REPO_ROOT, 'README.md'), resolve(target, 'HARNESS_README.md'));
-  seedTemplate(resolve(REPO_ROOT, 'templates/PROGRESS.md.template'), resolve(target, 'PROGRESS.md'));
-  seedTemplate(resolve(REPO_ROOT, 'templates/features.yml.template'), resolve(target, 'features.yml'));
+  const templateRoot = resolve(REPO_ROOT, '.github/skills/scaffold-harness/assets/templates');
+  seedTemplate(resolve(templateRoot, 'PROGRESS.md.template'), resolve(target, 'PROGRESS.md'));
+  seedTemplate(resolve(templateRoot, 'features.yml.template'), resolve(target, 'features.yml'));
   for (const file of ['doctor.yml', 'guards.yml', 'incidents.jsonl']) {
-    seedTemplate(resolve(REPO_ROOT, `templates/${file}.template`), resolve(target, `harness/${file}`));
+    seedTemplate(resolve(templateRoot, `${file}.template`), resolve(target, `harness/${file}`));
   }
 }
 

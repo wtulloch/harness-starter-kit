@@ -26,7 +26,8 @@ Key directories:
 - `.github/skills/`       — on-demand workflows and bundled starter references.
 - `.github/agents/`       — `*.agent.md` personas (the `harness-builder`).
 - `knowledge-base/`       — project-owned generator output; absent in this source repo.
-- `templates/`            — files the generator prompt emits into target repos.
+- `.github/skills/scaffold-harness/assets/templates/` — source templates the
+  scaffold skill emits into target repos.
 - `harness/state/`        — committed per-initiative `state.md` (durable tracking).
 - `.copilot-tracking/`    — ephemeral RPI scratch (research/plans/changes); **gitignored**.
 

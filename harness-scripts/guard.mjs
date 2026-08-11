@@ -405,7 +405,7 @@ export function describe(result) {
 /**
  * A ready-to-append incident record for a tripped guard, matching the schema
  * documented in .github/skills/review-session/SKILL.md and
- * templates/incidents.jsonl.template.
+ * .github/skills/scaffold-harness/assets/templates/incidents.jsonl.template.
  *
  * PRINT ONLY. This is what breaks the capture bootstrap deadlock: until now the
  * only writer of incidents was an agent voluntarily exercising the judgment the

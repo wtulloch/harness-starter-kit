@@ -373,7 +373,8 @@ for (const stateFile of walk(join(ROOT, 'harness', 'state')).filter((p) => p.end
 // ---------------------------------------------------------------------------
 // Check 8 — incident log (harness/incidents.jsonl) is well-formed JSONL AND
 // every record conforms to the schema documented in
-// .github/skills/review-session/SKILL.md and templates/incidents.jsonl.template.
+// .github/skills/review-session/SKILL.md and
+// .github/skills/scaffold-harness/assets/templates/incidents.jsonl.template.
 // Optional artifact: absent or empty passes silently (fail-open). Field-level
 // validation exists so a malformed incident cannot silently poison aggregation
 // (backpressure-stats.mjs groups on detection_signal.type + root_cause and

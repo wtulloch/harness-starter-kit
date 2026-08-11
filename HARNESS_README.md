@@ -39,7 +39,7 @@ session. It is **not** a hardware harness or a software *test* harness; here the
 | `.github/agents/` | Personas (the `harness-builder` scaffolder) |
 | `.github/skills/scaffold-harness/references/starter-harness/` | Starter-owned architecture, conventions, glossary, and index |
 | `knowledge-base/` | Project-owned generator output; absent in this source repo |
-| `templates/` | Files the generator prompt emits into target repos |
+| `.github/skills/scaffold-harness/assets/templates/` | Source templates the scaffold skill emits into target repos |
 | `installer/` | Package CLI, catalog planner, ownership manifest, and transactional executor |
 | `package.json` | Private Git package and `starter-harness` executable contract |
 | `harness-scripts/` | Optional executable layer (Node built-ins, fail-open): `validate`, `heal`, `doctor`, `guard`, session banners, `harness.mjs` verb dispatcher |

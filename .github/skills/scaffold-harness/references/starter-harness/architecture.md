@@ -130,7 +130,8 @@ instructions approach unless the sub-projects are genuinely autonomous.
 This starter harness both **uses** this shape (self-hosting) and **emits** it. The
 `build-harness` generator prompt is itself a harness component (a `*.prompt.md`) whose
 body instructs the `harness-builder` agent to author the *other* components into a
-target repo, drawing on the `templates/` directory. Emission is idempotent:
+target repo, drawing on the scaffold skill's `assets/templates/` directory.
+Emission is idempotent:
 discovery-before-generation, non-destructive create-missing-only, and per-phase
 state persistence.
 

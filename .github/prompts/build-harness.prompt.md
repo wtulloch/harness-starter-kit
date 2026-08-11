@@ -64,11 +64,14 @@ Use the maintain-harness companion skill scaffold-harness to generate: AGENTS.md
 harness-maintenance skill and the `review-session` self-healing skill);
 project-owned knowledge-base/ with index.md; .github/prompts/*;
 harness/incidents.jsonl (empty,
-from templates/incidents.jsonl.template with its `{{! ... }}` header stripped).
+from `.github/skills/scaffold-harness/assets/templates/incidents.jsonl.template`
+with its `{{! ... }}` header stripped).
 Seed the two-tier tracking default (`PROGRESS.md` + `features.yml`). Emit
-`harness/state/${input:project-slug}/state.md` (from templates/state.md.template)
+`harness/state/${input:project-slug}/state.md` (from
+`.github/skills/scaffold-harness/assets/templates/state.md.template`)
 **only when the user opts into** the phase-aware third tier — skip it otherwise.
-Fill placeholders from templates/. Wire `.gitignore` and `.gitattributes` with
+Fill placeholders from `.github/skills/scaffold-harness/assets/templates/`. Wire
+`.gitignore` and `.gitattributes` with
 **create-then-append-if-line-missing**: when the target file is absent, create it
 with the harness lines; when present, append only the missing harness lines and
 preserve existing content. Exact lines — `.gitignore` → `.copilot-tracking/`,
@@ -79,7 +82,8 @@ emitted files normalize to LF. Prefer /create-instruction, /create-skill,
 **`merge_agents` branch (AGENTS.md reconciliation).** Branch on the four-state
 result recorded in Phase 0 rather than plain create-missing-only:
 
-- **Neither** → emit the full `templates/AGENTS.md.template` (greenfield).
+- **Neither** → emit the full
+   `.github/skills/scaffold-harness/assets/templates/AGENTS.md.template` (greenfield).
 - **`AGENTS.md` only** → inject the harness managed block (between the
   `<!-- HARNESS:BEGIN (managed by scaffold-harness — edits inside are overwritten) -->`
   and `<!-- HARNESS:END -->` sentinels) via scaffold-harness Section 2a's

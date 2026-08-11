@@ -21,6 +21,38 @@
     "knowledge-toolchain-detection": {
       "target": "knowledge-base/toolchain-detection.md",
       "ownership": "managed-file"
+    },
+    "agents-brief-template": {
+      "target": "templates/AGENTS.md.template",
+      "ownership": "managed-file"
+    },
+    "checkpoint-template": {
+      "target": "templates/checkpoint.md.template",
+      "ownership": "managed-file"
+    },
+    "doctor-template": {
+      "target": "templates/doctor.yml.template",
+      "ownership": "managed-file"
+    },
+    "features-template": {
+      "target": "templates/features.yml.template",
+      "ownership": "managed-file"
+    },
+    "guards-template": {
+      "target": "templates/guards.yml.template",
+      "ownership": "managed-file"
+    },
+    "incidents-template": {
+      "target": "templates/incidents.jsonl.template",
+      "ownership": "managed-file"
+    },
+    "progress-template": {
+      "target": "templates/PROGRESS.md.template",
+      "ownership": "managed-file"
+    },
+    "state-template": {
+      "target": "templates/state.md.template",
+      "ownership": "managed-file"
     }
   },
   "atomicGroups": {
@@ -54,34 +86,34 @@
       "starter-harness-conventions-reference",
       "starter-harness-glossary-reference",
       "starter-harness-index-reference",
-      "agents-brief-template",
-      "checkpoint-template",
-      "doctor-template",
-      "features-template",
-      "guards-template",
-      "incidents-template",
-      "progress-template",
-      "state-template"
+      "scaffold-agents-brief-template",
+      "scaffold-checkpoint-template",
+      "scaffold-doctor-template",
+      "scaffold-features-template",
+      "scaffold-guards-template",
+      "scaffold-incidents-template",
+      "scaffold-progress-template",
+      "scaffold-state-template"
     ]
   },
   "artifacts": {
     "agents-brief": {
-      "source": "templates/AGENTS.md.template",
+      "source": ".github/skills/scaffold-harness/assets/templates/AGENTS.md.template",
       "target": "AGENTS.md",
       "operation": "reconcile-template"
     },
     "progress-tracker": {
-      "source": "templates/PROGRESS.md.template",
+      "source": ".github/skills/scaffold-harness/assets/templates/PROGRESS.md.template",
       "target": "PROGRESS.md",
       "operation": "template"
     },
     "feature-ledger": {
-      "source": "templates/features.yml.template",
+      "source": ".github/skills/scaffold-harness/assets/templates/features.yml.template",
       "target": "features.yml",
       "operation": "template"
     },
     "incident-log": {
-      "source": "templates/incidents.jsonl.template",
+      "source": ".github/skills/scaffold-harness/assets/templates/incidents.jsonl.template",
       "target": "harness/incidents.jsonl",
       "operation": "template"
     },
@@ -148,12 +180,12 @@
       "operation": "copy"
     },
     "doctor-manifest": {
-      "source": "templates/doctor.yml.template",
+      "source": ".github/skills/scaffold-harness/assets/templates/doctor.yml.template",
       "target": "harness/doctor.yml",
       "operation": "template"
     },
     "guards-manifest": {
-      "source": "templates/guards.yml.template",
+      "source": ".github/skills/scaffold-harness/assets/templates/guards.yml.template",
       "target": "harness/guards.yml",
       "operation": "template"
     },
@@ -252,44 +284,44 @@
       "target": ".github/skills/scaffold-harness/references/starter-harness/index.md",
       "operation": "copy"
     },
-    "agents-brief-template": {
-      "source": "templates/AGENTS.md.template",
-      "target": "templates/AGENTS.md.template",
+    "scaffold-agents-brief-template": {
+      "source": ".github/skills/scaffold-harness/assets/templates/AGENTS.md.template",
+      "target": ".github/skills/scaffold-harness/assets/templates/AGENTS.md.template",
       "operation": "copy"
     },
-    "checkpoint-template": {
-      "source": "templates/checkpoint.md.template",
-      "target": "templates/checkpoint.md.template",
+    "scaffold-checkpoint-template": {
+      "source": ".github/skills/scaffold-harness/assets/templates/checkpoint.md.template",
+      "target": ".github/skills/scaffold-harness/assets/templates/checkpoint.md.template",
       "operation": "copy"
     },
-    "doctor-template": {
-      "source": "templates/doctor.yml.template",
-      "target": "templates/doctor.yml.template",
+    "scaffold-doctor-template": {
+      "source": ".github/skills/scaffold-harness/assets/templates/doctor.yml.template",
+      "target": ".github/skills/scaffold-harness/assets/templates/doctor.yml.template",
       "operation": "copy"
     },
-    "features-template": {
-      "source": "templates/features.yml.template",
-      "target": "templates/features.yml.template",
+    "scaffold-features-template": {
+      "source": ".github/skills/scaffold-harness/assets/templates/features.yml.template",
+      "target": ".github/skills/scaffold-harness/assets/templates/features.yml.template",
       "operation": "copy"
     },
-    "guards-template": {
-      "source": "templates/guards.yml.template",
-      "target": "templates/guards.yml.template",
+    "scaffold-guards-template": {
+      "source": ".github/skills/scaffold-harness/assets/templates/guards.yml.template",
+      "target": ".github/skills/scaffold-harness/assets/templates/guards.yml.template",
       "operation": "copy"
     },
-    "incidents-template": {
-      "source": "templates/incidents.jsonl.template",
-      "target": "templates/incidents.jsonl.template",
+    "scaffold-incidents-template": {
+      "source": ".github/skills/scaffold-harness/assets/templates/incidents.jsonl.template",
+      "target": ".github/skills/scaffold-harness/assets/templates/incidents.jsonl.template",
       "operation": "copy"
     },
-    "progress-template": {
-      "source": "templates/PROGRESS.md.template",
-      "target": "templates/PROGRESS.md.template",
+    "scaffold-progress-template": {
+      "source": ".github/skills/scaffold-harness/assets/templates/PROGRESS.md.template",
+      "target": ".github/skills/scaffold-harness/assets/templates/PROGRESS.md.template",
       "operation": "copy"
     },
-    "state-template": {
-      "source": "templates/state.md.template",
-      "target": "templates/state.md.template",
+    "scaffold-state-template": {
+      "source": ".github/skills/scaffold-harness/assets/templates/state.md.template",
+      "target": ".github/skills/scaffold-harness/assets/templates/state.md.template",
       "operation": "copy"
     }
   },
@@ -358,14 +390,14 @@
       "starter-harness-conventions-reference",
       "starter-harness-glossary-reference",
       "starter-harness-index-reference",
-      "agents-brief-template",
-      "checkpoint-template",
-      "doctor-template",
-      "features-template",
-      "guards-template",
-      "incidents-template",
-      "progress-template",
-      "state-template"
+      "scaffold-agents-brief-template",
+      "scaffold-checkpoint-template",
+      "scaffold-doctor-template",
+      "scaffold-features-template",
+      "scaffold-guards-template",
+      "scaffold-incidents-template",
+      "scaffold-progress-template",
+      "scaffold-state-template"
     ]
   }
 }

@@ -76,7 +76,7 @@ function incident(id) {
 }
 
 // --- Build a minimal, validator-clean harness fixture in a temp dir. ----------
-// Deliberately omits .github/** and templates/** so Checks 1-3 and 9 no-op, and
+// Deliberately omits .github/** so customization checks no-op, and
 // omits features.yml artifacts + state so Check 10 no-ops. What remains is a
 // clean baseline the seeded guard and incidents drive.
 function loopFixture() {

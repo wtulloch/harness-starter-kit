@@ -19,7 +19,7 @@ Manual acceptance test that validates using this starter harness to bootstrap a
 |---|-------------|-------|
 | P1 | `node` on PATH (for the optional executable layer) | `node --version` prints a version |
 | P2 | `git` on PATH (for tracking + session banner) | `git --version` prints a version |
-| P3 | This starter repo is open and its templates exist | `templates/` contains `AGENTS.md.template`, `scripts/*.template`, `workflows/validate.yml.template` |
+| P3 | This starter repo is open and its templates exist | `.github/skills/scaffold-harness/assets/templates/` contains the eight generator templates |
 | P4 | A writable scratch location outside this repo | PowerShell: `C:\sandbox\harness-test-target`; Bash: `/c/sandbox/harness-test-target` (Git Bash) or `/mnt/c/sandbox/harness-test-target` (WSL) |
 
 > If Node is absent, P1 fails — run the **doc-only variant** (skip Stages 4–5 and

@@ -85,6 +85,25 @@ function addLegacyKnowledgeRecord(target, id = 'knowledge-index', content = '# L
   return { path, manifestPath };
 }
 
+function addLegacyTemplateRecord(target, id = 'agents-brief-template', relativePath = 'templates/AGENTS.md.template') {
+  const filename = relativePath.split('/').at(-1);
+  const content = readFileSync(resolve('.github/skills/scaffold-harness/assets/templates', filename), 'utf8');
+  const path = join(target, ...relativePath.split('/'));
+  mkdirSync(join(target, 'templates'), { recursive: true });
+  writeFileSync(path, content);
+  const manifestPath = join(target, 'harness', 'installation.yml');
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  manifest.artifacts.push({
+    id,
+    path: relativePath,
+    ownership: 'managed-file',
+    sourceHash: sha256(content),
+    installedHash: sha256(content),
+  });
+  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+  return { path, manifestPath };
+}
+
 test('plan resolves the catalog default without writing', () => {
   const { target, cleanup } = fixture();
   try {
@@ -130,7 +149,7 @@ test('standard omits the generator bootstrap and full includes its complete atom
     const standardPaths = new Set(standard.operations.map((operation) => operation.path));
     const fullPaths = new Set(full.operations.map((operation) => operation.path));
     assert.equal(standardPaths.has('.github/prompts/build-harness.prompt.md'), false);
-    assert.equal(standardPaths.has('templates/AGENTS.md.template'), false);
+    assert.equal(standardPaths.has('.github/skills/scaffold-harness/assets/templates/AGENTS.md.template'), false);
     for (const path of [
       '.github/prompts/build-harness.prompt.md',
       '.github/agents/harness-builder.agent.md',
@@ -138,8 +157,8 @@ test('standard omits the generator bootstrap and full includes its complete atom
       '.github/skills/scaffold-harness/references/adoption-profiles.json',
       '.github/skills/scaffold-harness/references/starter-harness/index.md',
       '.github/instructions/customization-authoring.instructions.md',
-      'templates/AGENTS.md.template',
-      'templates/state.md.template',
+      '.github/skills/scaffold-harness/assets/templates/AGENTS.md.template',
+      '.github/skills/scaffold-harness/assets/templates/state.md.template',
     ]) {
       assert.equal(fullPaths.has(path), true, `full profile is missing ${path}`);
     }
@@ -291,7 +310,8 @@ test('update supports cumulative full upgrade and refuses downgrade', async () =
     assert.equal(existsSync(join(target, '.github', 'skills', 'scaffold-harness', 'SKILL.md')), true);
     assert.equal(existsSync(join(target, '.github', 'skills', 'scaffold-harness', 'references', 'starter-harness', 'index.md')), true);
     assert.equal(existsSync(join(target, 'knowledge-base')), false);
-    assert.equal(existsSync(join(target, 'templates', 'AGENTS.md.template')), true);
+    assert.equal(existsSync(join(target, '.github', 'skills', 'scaffold-harness', 'assets', 'templates', 'AGENTS.md.template')), true);
+    assert.equal(existsSync(join(target, 'templates')), false);
     assert.equal(JSON.parse(readFileSync(join(target, 'harness', 'installation.yml'))).profile, 'full');
     assert.equal(await runQuiet({ command: 'update', target, profile: 'full', yes: true, json: true, dryRun: false }), 0);
     assert.equal(inspectInstallation({ target }).clean, true);
@@ -308,6 +328,70 @@ test('full update preserves a locally modified generator bootstrap file', async 
     const plan = createPlan({ command: 'update', target, profile: 'full' });
     assert.match(plan.conflicts.map((item) => item.reason).join('\n'), /locally modified/);
     assert.equal(readFileSync(prompt, 'utf8'), 'local edit\n');
+  } finally { cleanup(); }
+});
+
+test('full update relocates an unchanged legacy managed root template', async () => {
+  const { target, cleanup } = fixture();
+  try {
+    await runQuiet({ command: 'init', target, profile: 'full', yes: true, json: true, dryRun: false });
+    const { path, manifestPath } = addLegacyTemplateRecord(target);
+    const plan = createPlan({ command: 'update', target, profile: 'full' });
+    assert.equal(plan.conflicts.length, 0);
+    assert.equal(plan.operations.some((operation) => operation.type === 'delete' && operation.path === 'templates/AGENTS.md.template'), true);
+
+    assert.equal(await runQuiet({ command: 'update', target, profile: 'full', yes: true, json: true, dryRun: false }), 0);
+    assert.equal(existsSync(path), false);
+    assert.equal(existsSync(join(target, '.github', 'skills', 'scaffold-harness', 'assets', 'templates', 'AGENTS.md.template')), true);
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    assert.equal(manifest.artifacts.some((artifact) => artifact.id === 'agents-brief-template'), false);
+    assert.equal(manifest.artifacts.some((artifact) => artifact.id === 'scaffold-agents-brief-template'), true);
+    assert.equal(manifest.migrations.some((migration) => migration.retiredId === 'agents-brief-template'), true);
+    assert.equal(inspectInstallation({ target }).clean, true);
+  } finally { cleanup(); }
+});
+
+test('full update blocks relocation of a locally modified legacy root template', async () => {
+  const { target, cleanup } = fixture();
+  try {
+    await runQuiet({ command: 'init', target, profile: 'full', yes: true, json: true, dryRun: false });
+    const { path } = addLegacyTemplateRecord(target);
+    writeFileSync(path, 'local template edit\n');
+    const plan = createPlan({ command: 'update', target, profile: 'full' });
+    assert.match(plan.conflicts.map((item) => item.reason).join('\n'), /retired managed file agents-brief-template was locally modified/);
+    assert.equal(readFileSync(path, 'utf8'), 'local template edit\n');
+  } finally { cleanup(); }
+});
+
+test('full update retires an already absent legacy root template record', async () => {
+  const { target, cleanup } = fixture();
+  try {
+    await runQuiet({ command: 'init', target, profile: 'full', yes: true, json: true, dryRun: false });
+    const { path, manifestPath } = addLegacyTemplateRecord(target);
+    rmSync(path);
+    const plan = createPlan({ command: 'update', target, profile: 'full' });
+    assert.equal(plan.conflicts.length, 0);
+    assert.equal(plan.operations.some((operation) => operation.type === 'noop' && operation.retiredId === 'agents-brief-template'), true);
+
+    assert.equal(await runQuiet({ command: 'update', target, profile: 'full', yes: true, json: true, dryRun: false }), 0);
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    assert.equal(manifest.artifacts.some((artifact) => artifact.id === 'agents-brief-template'), false);
+  } finally { cleanup(); }
+});
+
+test('transaction rollback restores a retired legacy root template and manifest', async () => {
+  const { target, cleanup } = fixture();
+  try {
+    await runQuiet({ command: 'init', target, profile: 'full', yes: true, json: true, dryRun: false });
+    const { path, manifestPath } = addLegacyTemplateRecord(target);
+    const content = readFileSync(path, 'utf8');
+    const manifestBefore = readFileSync(manifestPath, 'utf8');
+    const plan = createPlan({ command: 'update', target, profile: 'full' });
+    const manifestText = JSON.stringify(buildInstallation(plan, '0.1.0'), null, 2) + '\n';
+
+    assert.throws(() => executePlan(plan, manifestText, { failAfter: 1 }), /Injected transaction failure/);
+    assert.equal(readFileSync(path, 'utf8'), content);
+    assert.equal(readFileSync(manifestPath, 'utf8'), manifestBefore);
   } finally { cleanup(); }
 });
 

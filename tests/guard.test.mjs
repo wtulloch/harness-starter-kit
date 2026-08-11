@@ -359,7 +359,7 @@ test('an absent manifest means no no-progress evaluation at all', () => {
 // --- Seeded incident record (the capture bootstrap). --------------------------
 
 const SKILL = join(ROOT, '.github', 'skills', 'review-session', 'SKILL.md');
-const TEMPLATE = join(ROOT, 'templates', 'incidents.jsonl.template');
+const TEMPLATE = join(ROOT, '.github', 'skills', 'scaffold-harness', 'assets', 'templates', 'incidents.jsonl.template');
 
 test('the guard-trip signal is documented in both schema sources', () => {
   assert.match(readFileSync(SKILL, 'utf8'), /`guard-trip`/);

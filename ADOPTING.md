@@ -154,13 +154,13 @@ package. Manual template copying remains available for constrained environments:
 
 | Emit to | From template | Notes |
 |---------|---------------|-------|
-| `AGENTS.md` | `templates/AGENTS.md.template` | Fill `{{...}}` placeholders |
-| `PROGRESS.md` | `templates/PROGRESS.md.template` | Read-first / write-last resume file |
-| `features.yml` | `templates/features.yml.template` | Feature inventory + statuses |
-| `harness/state/<slug>/state.md` | `templates/state.md.template` | **Opt-in** third tier — emit only for multi-session initiatives needing phase-aware resume; the two-tier default is `PROGRESS.md` + `features.yml` |
-| `harness/incidents.jsonl` | `templates/incidents.jsonl.template` | Empty seed; strip the `{{! ... }}` header |
-| `harness/doctor.yml` | `templates/doctor.yml.template` | Populated during the interview (git always seeded); default-emitted like the incidents log, not gated behind an opt-in |
-| `harness/guards.yml` | `templates/guards.yml.template` | Default-emitted; declares the loop guards `guard.mjs` evaluates — without it the "re-run heal at most 3 times" rule in `AGENTS.md` has nothing enforcing it |
+| `AGENTS.md` | `.github/skills/scaffold-harness/assets/templates/AGENTS.md.template` | Fill `{{...}}` placeholders |
+| `PROGRESS.md` | `.github/skills/scaffold-harness/assets/templates/PROGRESS.md.template` | Read-first / write-last resume file |
+| `features.yml` | `.github/skills/scaffold-harness/assets/templates/features.yml.template` | Feature inventory + statuses |
+| `harness/state/<slug>/state.md` | `.github/skills/scaffold-harness/assets/templates/state.md.template` | **Opt-in** third tier — emit only for multi-session initiatives needing phase-aware resume; the two-tier default is `PROGRESS.md` + `features.yml` |
+| `harness/incidents.jsonl` | `.github/skills/scaffold-harness/assets/templates/incidents.jsonl.template` | Empty seed; strip the `{{! ... }}` header |
+| `harness/doctor.yml` | `.github/skills/scaffold-harness/assets/templates/doctor.yml.template` | Populated during the interview (git always seeded); default-emitted like the incidents log, not gated behind an opt-in |
+| `harness/guards.yml` | `.github/skills/scaffold-harness/assets/templates/guards.yml.template` | Default-emitted; declares the loop guards `guard.mjs` evaluates — without it the "re-run heal at most 3 times" rule in `AGENTS.md` has nothing enforcing it |
 
 Strip each template's leading `{{! ... }}` generator-header lines on emit (they are
 not valid content). Add a `.gitignore` (ignoring `.copilot-tracking/`) and a

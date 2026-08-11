@@ -19,7 +19,7 @@ emit procedure the `build-harness` generator prompt leans on during its Scaffold
   Report ✅ present / ❌ missing.
 - **Non-destructive create-missing-only.** Never overwrite an existing file unless
   the user explicitly opts in to overwrite.
-- **Template-driven.** Fill placeholders from the `templates/` directory rather
+- **Template-driven.** Fill placeholders from the `assets/templates/` directory rather
   than authoring from scratch.
 - **Profile-driven fixed artifacts.** Resolve `doc-only`, `standard`, or `full`
   from `.github/skills/scaffold-harness/references/adoption-profiles.json`; never
@@ -42,7 +42,7 @@ Also record the **AGENTS.md reconciliation state** — the presence of `AGENTS.m
 and `.github/copilot-instructions.md` selects one of four matrix actions (applied
 in Section 2a):
 
-- **Neither** → full greenfield emit from `templates/AGENTS.md.template`.
+- **Neither** → full greenfield emit from `assets/templates/AGENTS.md.template`.
 - **`AGENTS.md` only** → inject the managed block; leave project-owned sections intact.
 - **`.github/copilot-instructions.md` only** → create `AGENTS.md` with the managed block, then migrate-and-delete `copilot-instructions.md`.
 - **Both** → inject the managed block into `AGENTS.md` and migrate-and-delete `copilot-instructions.md`.
@@ -52,12 +52,12 @@ in Section 2a):
 For each missing target, emit from the corresponding template and substitute
 `{{placeholders}}` with the gathered project values:
 
-- AGENTS.md ← templates/AGENTS.md.template
-- PROGRESS.md ← templates/PROGRESS.md.template
-- features.yml ← templates/features.yml.template
-- harness/state/<project-slug>/state.md ← templates/state.md.template (opt-in third tier; emit **only** when the user opts into phase-aware state, otherwise skip — the two-tier default is PROGRESS.md + features.yml)
-- harness/incidents.jsonl ← templates/incidents.jsonl.template (strip the `{{! ... }}` header; emit an empty log)
-- Optional checkpoints ← templates/checkpoint.md.template
+- AGENTS.md ← assets/templates/AGENTS.md.template
+- PROGRESS.md ← assets/templates/PROGRESS.md.template
+- features.yml ← assets/templates/features.yml.template
+- harness/state/<project-slug>/state.md ← assets/templates/state.md.template (opt-in third tier; emit **only** when the user opts into phase-aware state, otherwise skip — the two-tier default is PROGRESS.md + features.yml)
+- harness/incidents.jsonl ← assets/templates/incidents.jsonl.template (strip the `{{! ... }}` header; emit an empty log)
+- Optional checkpoints ← assets/templates/checkpoint.md.template
 
 Also create project-owned `knowledge-base/index.md` + body docs tailored to the
 target repository, path-scoped
@@ -168,5 +168,5 @@ List what was created vs skipped (already present), and how to invoke each piece
 
 - Starter conventions: references/starter-harness/conventions.md
 - Starter architecture: references/starter-harness/architecture.md
-- Templates: templates/
+- Templates: assets/templates/
 - Adoption profiles: references/adoption-profiles.json

@@ -47,7 +47,7 @@ harnesses. Your job is to build and emit the harness file shape — AGENTS.md,
    plan resolved from the canonical catalog as a ✅/❓ checklist. Wait for explicit
    confirmation before writing.
 4. **Scaffold** — Generate only missing files (unless overwrite approved) using
-   the `scaffold-harness` skill and `templates/`. Apply the selected profile
+   the `scaffold-harness` skill and its `assets/templates/`. Apply the selected profile
    directly from the canonical catalog, never from a replicated path list.
    `doc-only` emits fixed Layer 0 artifacts. `standard` is the default and adds
    the complete, atomic executable group plus doctor/guard manifests. `full` adds

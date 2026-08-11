@@ -19,8 +19,7 @@
     ".github/skills/",
     ".github/workflows/validate.yml",
     ".githooks/pre-commit",
-    "harness-scripts/",
-    "templates/"
+    "harness-scripts/"
   ],
   "scripts": {
     "test": "node --test",
