@@ -63,13 +63,20 @@ function appendDoctorTools(text, tools) {
   return text.replace(/\s*$/, '\n') + additions.join('\n') + '\n';
 }
 
-function planAgents({ id, target, source, values, installedRecord, conflicts }) {
+function planAgents({ id, target, source, values, installedRecord, conflicts, migrateInstructions }) {
   const agentsPath = safeTarget(target, 'AGENTS.md');
   const legacyPath = safeTarget(target, '.github/copilot-instructions.md');
   const current = readOptional(agentsPath);
   const legacy = readOptional(legacyPath);
   const rendered = renderTemplate(source, values);
   const block = managedBlock(rendered);
+  if (legacy !== null && !migrateInstructions) {
+    conflicts.push({
+      path: '.github/copilot-instructions.md',
+      reason: 'instruction migration requires explicit consent; preserve the file or rerun with --migrate-instructions',
+    });
+    return [];
+  }
   let desired;
   if (current === null) {
     desired = legacy === null
@@ -155,7 +162,15 @@ export function createPlan(options) {
     const installedRecord = installedById.get(artifact.id);
     if (artifact.operation === 'reconcile-template') {
       const source = readFileSync(resolve(PACKAGE_ROOT, artifact.source), 'utf8');
-      operations.push(...planAgents({ id: artifact.id, target, source, values, installedRecord, conflicts }));
+      operations.push(...planAgents({
+        id: artifact.id,
+        target,
+        source,
+        values,
+        installedRecord,
+        conflicts,
+        migrateInstructions: options.migrateInstructions === true,
+      }));
       continue;
     }
     const path = safeTarget(target, artifact.target);

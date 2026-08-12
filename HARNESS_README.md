@@ -18,8 +18,8 @@ session. It is **not** a hardware harness or a software *test* harness; here the
 1. **Self-hosting** — this repo uses its own harness (see `AGENTS.md`,
   `.github/skills/scaffold-harness/references/starter-harness/`, and
   `harness/state/`) to build and maintain itself.
-2. **Generator** — the `build-harness` generator prompt scaffolds this same shape
-   into other repos.
+2. **Generator** — the canonical `build-harness` Agent Skill scaffolds this same
+  shape into other repos from VS Code Chat or GitHub Copilot CLI.
 3. **Installer** — the dependency-free `starter-harness` CLI installs and updates
   the catalog-defined fixed core from the GitHub starter-kit package without
   adding a dependency to the target repository or publishing to npm.
@@ -34,9 +34,9 @@ session. It is **not** a hardware harness or a software *test* harness; here the
 | `features.yml` | Committed feature inventory + statuses |
 | `LICENSE` | MIT license |
 | `.github/instructions/` | Path-scoped + on-demand rules |
-| `.github/prompts/` | Reusable prompts (the `build-harness` generator prompt) |
-| `.github/skills/` | On-demand workflows (`maintain-harness`, `scaffold-harness`, `review-session`) |
-| `.github/agents/` | Personas (the `harness-builder` scaffolder) |
+| `.github/prompts/` | Thin VS Code-specific prompt adapters, when needed |
+| `.github/skills/` | Canonical shared workflows (`build-harness`, `maintain-harness`, `scaffold-harness`, `review-session`) |
+| `.github/agents/` | Optional personas (the `harness-builder` scaffolder) |
 | `.github/skills/scaffold-harness/references/starter-harness/` | Starter-owned architecture, conventions, glossary, and index |
 | `knowledge-base/` | Project-owned generator output; absent in this source repo |
 | `.github/skills/scaffold-harness/assets/templates/` | Source templates the scaffold skill emits into target repos |
@@ -57,12 +57,18 @@ session. It is **not** a hardware harness or a software *test* harness; here the
   the target SHA. After reviewing the plan, initialize with the same package spec
   and append the installer's `--yes`. The leading `npx --yes` accepts npm's
   remote-package prompt; a trailing `--yes` after `init` or `update` authorizes
-  the installer mutation.
+  the installer mutation. Brownfield migration of
+  `.github/copilot-instructions.md` is separate consent: add
+  `--migrate-instructions` to both `plan` and `init`, for example
+  `plan --target . --profile standard --migrate-instructions`, then
+  `init --target . --profile standard --migrate-instructions --yes`.
 - **Install the generator without copying files**: use the same pinned package
-  with `init --target . --profile full --yes`, then reload the target workspace
-  in VS Code and run `/build-harness project-slug=<slug> profile=full
-  overwrite=false`. The `full` profile installs the prompt, bound agent, skills,
-  instructions, knowledge base, and templates needed by the generator.
+  with `init --target . --profile full --yes`. Open the disposable target in VS
+  Code Chat or start GitHub Copilot CLI there, then invoke the canonical Agent
+  Skill with `/build-harness project-slug=<slug> profile=full overwrite=false`.
+  The optional `harness-builder` agent may refine the experience, but it does not
+  own the workflow. `.github/prompts` is a VS Code-specific adapter surface and
+  is not a Copilot CLI workflow surface.
 - **Try mutable main**: after remote acceptance, the convenience form
   `npx --yes github:wtulloch/harness-starter-kit plan --target . --profile standard`
   follows mutable `main` and is not reproducible. Public repositories need no Git
@@ -73,7 +79,7 @@ session. It is **not** a hardware harness or a software *test* harness; here the
   quickstart for the full GitHub package workflow, authentication, pinning, and
   clone or explicit `npm exec --package` troubleshooting fallbacks.
 - **Scaffold a harness into a repo**: after a full-profile installation, run the
-  `/build-harness` prompt (binds to the `harness-builder` agent). It walks a
+  `/build-harness` Agent Skill in VS Code Chat or GitHub Copilot CLI. It walks a
   resumable, idempotent 6-phase flow
   (detect & resume → gather → confirm → scaffold → validate → summarize) and only
   creates missing files unless you opt in to overwrite.

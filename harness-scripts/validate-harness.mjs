@@ -278,14 +278,15 @@ if (!existsSync(featuresPath)) {
 }
 
 // ---------------------------------------------------------------------------
-// Check 5 — exactly one always-on file (root AGENTS.md); no co-shipped
-// .github/copilot-instructions.md.
+// Check 5 — this harness's recommended single-source policy is root AGENTS.md.
+// Both supported hosts can read .github/copilot-instructions.md, so this is a
+// repository policy check, not a host-compatibility restriction.
 // ---------------------------------------------------------------------------
 if (!existsSync(join(ROOT, 'AGENTS.md'))) {
   fail('always-on', 'root AGENTS.md is missing (the single always-on file)');
 }
 if (existsSync(join(ROOT, '.github', 'copilot-instructions.md'))) {
-  fail('always-on', '.github/copilot-instructions.md co-ships with AGENTS.md — keep only AGENTS.md');
+  fail('always-on', '.github/copilot-instructions.md co-ships with AGENTS.md; repository policy recommends one AGENTS.md, but migrate and remove existing instructions only with explicit consent');
 }
 
 // ---------------------------------------------------------------------------
@@ -344,9 +345,15 @@ for (const file of committedDocs) {
 // Check 10 — concrete artifact paths in feature/state tracking resolve.
 // Placeholder-bearing template values and URLs are intentionally skipped.
 // ---------------------------------------------------------------------------
+const RETIRED_ARTIFACT_REPLACEMENTS = new Map([
+  ['.github/prompts/build-harness.prompt.md', '.github/skills/build-harness/SKILL.md'],
+]);
+
 function checkArtifact(owner, rawPath) {
   const artifact = rawPath.trim().replace(/^['"]|['"]$/g, '');
   if (!artifact || artifact.includes('{{') || /^(https?:|mailto:)/.test(artifact)) return;
+  const replacement = RETIRED_ARTIFACT_REPLACEMENTS.get(artifact);
+  if (replacement && existsSync(resolve(ROOT, replacement))) return;
   if (!existsSync(resolve(ROOT, artifact))) {
     fail('tracked-artifact', `${owner}: artifact does not exist → ${artifact}`);
   }
@@ -496,23 +503,22 @@ for (const file of walk(ROOT)) {
 // Consistency-only (D-14 style): the file is optional and its absence is never a
 // failure — this is not a hooks-schema validator.
 //
-// The event allow-list enumerates both spelling families explicitly and matches
-// them exactly (no case-folding): GitHub Copilot's lowerCamelCase names (D-20
-// verified `sessionStart`, `preToolUse`, `agentStop`, `subagentStop` against the
-// hooks reference) and the PascalCase equivalents a different vendor uses.
-// `agentStop`/`stop` (and `AgentStop`/`Stop`) are the two spellings of the same
-// "agent finished" event. Case-folding was dropped because it also passed
-// non-working spellings like `agentstop` — the exact silent-never-fires class
-// this check exists to catch (D-33 refines D-29).
+// Event names are exact host contracts, not case aliases. Keep the tables
+// separate so a spelling documented by one host is never generalized into a
+// fabricated spelling for the other. Shared hook files may use only the
+// intersection; host-specific adapters may use their host's complete table.
 // ---------------------------------------------------------------------------
-const HOOK_EVENTS = new Set([
-  // GitHub Copilot lowerCamelCase (D-20 verified)
-  'sessionStart', 'userPromptSubmit', 'preToolUse', 'postToolUse',
-  'preCompact', 'subagentStart', 'subagentStop', 'agentStop', 'stop',
-  // PascalCase equivalents (a different vendor)
-  'SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse',
-  'PreCompact', 'SubagentStart', 'SubagentStop', 'AgentStop', 'Stop',
-]);
+const HOOK_EVENTS_BY_HOST = {
+  'copilot-cli': new Set([
+    'sessionStart', 'userPromptSubmitted', 'preToolUse', 'postToolUse',
+    'preCompact', 'subagentStart', 'subagentStop', 'agentStop', 'sessionEnd',
+  ]),
+  vscode: new Set([
+    'SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse',
+    'PreCompact', 'SubagentStart', 'SubagentStop', 'Stop',
+  ]),
+};
+const HOOK_EVENTS = new Set(Object.values(HOOK_EVENTS_BY_HOST).flatMap((events) => [...events]));
 const hooksConfigPath = join(ROOT, '.github', 'hooks', 'hooks.json');
 if (existsSync(hooksConfigPath)) {
   const raw = readFileSync(hooksConfigPath, 'utf8');
@@ -531,7 +537,14 @@ if (existsSync(hooksConfigPath)) {
     } else {
       for (const event of Object.keys(parsed.hooks)) {
         if (!HOOK_EVENTS.has(event)) {
-          fail('hooks-config', `.github/hooks/hooks.json declares unknown hook event "${event}"`);
+          fail('hooks-config', `.github/hooks/hooks.json declares unknown hook event "${event}"; use an exact VS Code or Copilot CLI event name`);
+        }
+        if (event === 'Stop' || event === 'agentStop') {
+          const entries = Array.isArray(parsed.hooks[event]) ? parsed.hooks[event] : [];
+          if (entries.some((entry) => typeof entry?.command === 'string'
+            && /(?:^|[\\/])session-end\.mjs(?:\s|$)/.test(entry.command))) {
+            fail('hooks-config', `.github/hooks/hooks.json maps ${event} to session-end.mjs; stop events are not session termination`);
+          }
         }
       }
       const scriptRefs = new Set();
@@ -754,13 +767,12 @@ for (const script of harnessScripts) {
 // ---------------------------------------------------------------------------
 const PROFILE_CATALOG = '.github/skills/scaffold-harness/references/adoption-profiles.json';
 const PROFILE_NAMES = ['doc-only', 'standard', 'full'];
-const CONTRACT_FILES = [
-  '.github/prompts/build-harness.prompt.md',
-  '.github/skills/scaffold-harness/SKILL.md',
-  '.github/agents/harness-builder.agent.md',
-  'ADOPTING.md',
-  'tests/scaffold-new-project.test.md',
-];
+const CONTRACT_FILES = new Map([
+  ['.github/skills/build-harness/SKILL.md', '../scaffold-harness/references/adoption-profiles.json'],
+  ['.github/skills/scaffold-harness/SKILL.md', PROFILE_CATALOG],
+  ['ADOPTING.md', PROFILE_CATALOG],
+  ['tests/scaffold-new-project.test.md', PROFILE_CATALOG],
+]);
 // Infrastructure for building/publishing *this* repo, never emitted to a target.
 const REPO_LOCAL = new Set([
   '.github/workflows/self-test.yml',
@@ -876,12 +888,12 @@ if (existsSync(profileCatalogPath)) {
     }
   }
 
-  for (const contract of CONTRACT_FILES) {
+  for (const [contract, catalogReference] of CONTRACT_FILES) {
     const contractPath = join(ROOT, contract);
     if (!existsSync(contractPath)) continue;
     const text = readFileSync(contractPath, 'utf8');
-    if (!text.includes(PROFILE_CATALOG)) {
-      fail('emit-contract', `${contract}: does not reference ${PROFILE_CATALOG}`);
+    if (!text.includes(catalogReference)) {
+      fail('emit-contract', `${contract}: does not reference ${catalogReference}`);
     }
     for (const profile of PROFILE_NAMES) {
       if (!text.includes(profile)) fail('emit-contract', `${contract}: does not name profile ${profile}`);

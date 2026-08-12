@@ -99,7 +99,7 @@ const REPAIR = {
   },
   'always-on': {
     class: 'repairable',
-    expected: 'Keep exactly one always-on file: root AGENTS.md, with no co-shipped .github/copilot-instructions.md.',
+    expected: 'Apply the repository single-source policy without data loss: obtain explicit migration consent, copy existing .github/copilot-instructions.md guidance into AGENTS.md, then remove the legacy file. Without consent, preserve it and escalate the policy conflict.',
   },
   'agents-budget': {
     class: 'repairable',
@@ -111,7 +111,7 @@ const REPAIR = {
   },
   'hooks-config': {
     class: 'repairable',
-    expected: 'Fix .github/hooks/hooks.json: numeric `version`, a `hooks` object, every referenced `*.mjs` path present in the repo, and every event key inside the documented set — sessionStart, userPromptSubmit, preToolUse, postToolUse, preCompact, subagentStart, subagentStop, agentStop, stop (matched case-insensitively, so the PascalCase spelling of each is also accepted).',
+    expected: 'Fix .github/hooks/hooks.json: numeric `version`, a `hooks` object, every referenced `*.mjs` path present, and exact host event names only. Copilot CLI: sessionStart, userPromptSubmitted, preToolUse, postToolUse, preCompact, subagentStart, subagentStop, agentStop, sessionEnd. VS Code: SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, PreCompact, SubagentStart, SubagentStop, Stop. Never map Stop or agentStop to session-end.mjs; stop events are not session termination. Keep shared stop hooks neutral, and reserve session-end.mjs automation for CLI sessionEnd if explicitly adopted.',
   },
   'doctor-yaml': {
     class: 'repairable',

@@ -6,7 +6,9 @@ description: "Emit an AI-agent engineering harness into a target repo. USE FOR: 
 # Scaffold Harness
 
 Generate the harness file shape into a target repository. This is the reusable
-emit procedure the `build-harness` generator prompt leans on during its Scaffold phase.
+emit-only capability used by the canonical `build-harness` skill after the user
+confirms its file plan. It does not own discovery, interviewing, confirmation, or
+workflow summarization.
 
 ## When to use
 
@@ -38,14 +40,18 @@ Scan the target repo for: `AGENTS.md`, `PROGRESS.md`, `features.yml`,
 `harness/doctor.yml`. Present a ✅/❌ checklist. Never overwrite unless overwrite
 is approved.
 
-Also record the **AGENTS.md reconciliation state** — the presence of `AGENTS.md`
-and `.github/copilot-instructions.md` selects one of four matrix actions (applied
-in Section 2a):
+Also record the **AGENTS.md reconciliation state**. The presence of `AGENTS.md`
+and `.github/copilot-instructions.md` selects one of four deterministic outcomes
+(applied in Section 2a):
 
 - **Neither** → full greenfield emit from `assets/templates/AGENTS.md.template`.
 - **`AGENTS.md` only** → inject the managed block; leave project-owned sections intact.
-- **`.github/copilot-instructions.md` only** → create `AGENTS.md` with the managed block, then migrate-and-delete `copilot-instructions.md`.
-- **Both** → inject the managed block into `AGENTS.md` and migrate-and-delete `copilot-instructions.md`.
+- **`.github/copilot-instructions.md` only** → ask whether to migrate into the
+  recommended `AGENTS.md`; migrate-and-delete only after explicit consent,
+  otherwise preserve the existing file and make no reconciliation writes.
+- **Both** → ask whether to consolidate into the recommended `AGENTS.md`;
+  migrate-and-delete only after explicit consent, otherwise preserve both files
+  and make no reconciliation writes.
 
 ### 2. Generate missing files from templates
 
@@ -63,15 +69,16 @@ Also create project-owned `knowledge-base/index.md` + body docs tailored to the
 target repository, path-scoped
 `.github/instructions/*.instructions.md`, at least one maintenance skill (and the
 `review-session` self-healing skill), and reusable `.github/prompts/*.prompt.md`.
-Prefer the `/create-instruction`, `/create-skill`, `/create-prompt`,
-`/create-agent` scaffolders where available for well-formed frontmatter.
+Use the current host's file-editing capabilities and follow the customization
+authoring rules for well-formed frontmatter.
 
 ### 2a. AGENTS.md managed-block injection (four-state reconciliation)
 
 `AGENTS.md` is not a plain create-missing-only target: reconcile it per the
 four-state matrix recorded in Section 1 so harness-owned content lands without
-clobbering the target's project-owned sections and without creating a second
-always-on file (which would trip validator Check 5).
+clobbering the target's project-owned sections. Both target hosts support
+`.github/copilot-instructions.md`; consolidating it is this harness's recommended
+single-source policy, not a compatibility requirement.
 
 Wrap the harness-owned sections between these **exact** idempotency sentinels
 (verbatim — Phase 4's Check 17 asserts these strings):
@@ -98,11 +105,16 @@ Wrap the harness-owned sections between these **exact** idempotency sentinels
   `AGENTS.md`, replace the block body between the markers; otherwise append the
   full block to the end of the file. Running adoption twice yields exactly one
   managed block, not two.
-- **migrate-and-delete (default):** when `.github/copilot-instructions.md` is
-  present, migrate its content into the project-owned sections of `AGENTS.md`
-  first, announce the removal, then delete `copilot-instructions.md`. The migrated
-  content lands in `AGENTS.md` **before** deletion — never a silent loss — and the
-  single-always-on standard (Check 5) stays green.
+- **Explicit migration consent:** when `.github/copilot-instructions.md` is
+  present, ask for a dedicated migrate-or-keep choice before writing. General
+  scaffold confirmation does not grant migration consent. On consent, migrate
+  its content into the project-owned sections of `AGENTS.md` first, announce the
+  removal, then delete `copilot-instructions.md`. Without consent or when the
+  choice is unavailable noninteractively, preserve the file byte-for-byte, make
+  no AGENTS reconciliation writes, and report that the CLI equivalent is
+  `--migrate-instructions`. The migrated content lands in `AGENTS.md` **before**
+  deletion, never a silent loss, and the single-always-on policy (Check 5) then
+  stays green.
 
 ### 2b. Emit the selected adoption profile
 
@@ -130,11 +142,13 @@ append-if-`name`-missing rule. Existing entries win, with no removal, reordering
 or rewrite.
 
 For `full`, emit the local hook file but never activate it automatically. Document
-the explicit `git config core.hooksPath .githooks` command. Also document the
-honest agent-hooks limitation: the scripts print plain-text banners, not the
-single-line JSON (`{"additionalContext": "..."}`) needed to inject output into
-the agent's context. Hooks automate the trigger only; they never replace reading
-`PROGRESS.md`. Detecting backpressure remains agent/human judgment (D-15).
+the explicit `git config core.hooksPath .githooks` command. The shared agent-hooks
+file contains no lifecycle automation: VS Code and Copilot CLI use different
+exact event names and output envelopes, and per-turn stop events are not session
+termination. Keep `session-start` and `session-end` as read-only,
+operator-invocable commands. Do not add a context adapter or CLI-only
+`sessionEnd` hook until pinned live payload evidence justifies it. Detecting
+backpressure remains agent/human judgment (D-15).
 
 Record the selected profile and which layers it emitted or skipped in committed
 tracking so the target never silently inherits or misses automation.

@@ -31,6 +31,21 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PROFILE_CATALOG_PATH = join(ROOT, '.github', 'skills', 'scaffold-harness', 'references', 'adoption-profiles.json');
 const PROFILE_CATALOG = JSON.parse(readFileSync(PROFILE_CATALOG_PATH, 'utf8'));
 
+const BUILD_HARNESS_SKILL_PATH = join(ROOT, '.github', 'skills', 'build-harness', 'SKILL.md');
+const BUILD_HARNESS_SKILL = readFileSync(BUILD_HARNESS_SKILL_PATH, 'utf8');
+const PORTABLE_SKILL_FORBIDDEN = [
+  /\$\{input:/,
+  /^agent:/m,
+  /^agents:/m,
+  /Researcher Subagent/,
+  /\/create-[a-z-]+/,
+  /edit\/[A-Za-z]/,
+  /#file:/,
+];
+const portableSkillViolations = (text) => PORTABLE_SKILL_FORBIDDEN
+  .filter((pattern) => pattern.test(text))
+  .map((pattern) => pattern.source);
+
 // Registers a node:test case. The boolean/detail are computed synchronously
 // during the imperative scaffold simulation below (same sequencing the prior
 // hand-rolled check()/results accumulator used) — the test body just asserts on
@@ -73,6 +88,86 @@ check('profile-catalog-artifacts', unknownProfileArtifacts.length === 0
 check('profile-catalog-cumulative', isSubset(PROFILE_CATALOG.profiles['doc-only'], PROFILE_CATALOG.profiles.standard)
   && isSubset(PROFILE_CATALOG.profiles.standard, PROFILE_CATALOG.profiles.full));
 check('profile-catalog-atomic-groups', atomicGroupsSplit.length === 0, atomicGroupsSplit.join(', '));
+
+// Canonical workflow ownership. The portable skill is the only build-harness
+// slash owner; personas may shape behavior but must not replicate its gates.
+check('build-harness-skill-frontmatter', /^---\r?\nname: build-harness\r?\ndescription: .+\r?\n(?:.+\r?\n)*?user-invocable: true\r?\n---/m.test(BUILD_HARNESS_SKILL));
+check('build-harness-six-gates', ['Detect', 'Gather', 'Confirm', 'Scaffold', 'Validate', 'Summarize']
+  .every((gate, index) => BUILD_HARNESS_SKILL.includes(`## Gate ${index + 1}: ${gate}`)));
+check('build-harness-confirmation-before-write', /Wait for explicit user confirmation before writing/.test(BUILD_HARNESS_SKILL)
+  && BUILD_HARNESS_SKILL.indexOf('## Gate 3: Confirm') < BUILD_HARNESS_SKILL.indexOf('## Gate 4: Scaffold'));
+check('build-harness-portable-dependencies', portableSkillViolations(BUILD_HARNESS_SKILL).length === 0,
+  portableSkillViolations(BUILD_HARNESS_SKILL).join(', '));
+check('build-harness-relative-references', [...BUILD_HARNESS_SKILL.matchAll(/\]\(([^)]+)\)/g)]
+  .every(([, reference]) => reference.startsWith('../') && existsSync(resolve(dirname(BUILD_HARNESS_SKILL_PATH), reference))));
+check('build-harness-portability-negative-fixtures', [
+  '${input:profile}',
+  'agent: harness-builder',
+  'agents:\n  - Researcher Subagent',
+  '/create-skill',
+  'edit/createFile',
+  '#file:README.md',
+].every((fixture) => portableSkillViolations(fixture).length > 0));
+
+const buildHarnessOwners = [
+  '.github/skills/build-harness/SKILL.md',
+  '.github/prompts/build-harness.prompt.md',
+].filter((file) => existsSync(join(ROOT, file)));
+check('build-harness-single-owner', buildHarnessOwners.length === 1
+  && buildHarnessOwners[0] === '.github/skills/build-harness/SKILL.md', buildHarnessOwners.join(', '));
+
+const harnessBuilderPath = join(ROOT, '.github', 'agents', 'harness-builder.agent.md');
+const harnessBuilder = readFileSync(harnessBuilderPath, 'utf8');
+const agentFrontmatter = harnessBuilder.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? '';
+const agentToolsBlock = agentFrontmatter.match(/^tools:\r?\n((?:\s+- .+\r?\n?)+)/m)?.[1] ?? '';
+const agentTools = [...agentToolsBlock.matchAll(/^\s+- (.+)$/gm)].map((match) => match[1]);
+const sharedAgentAliases = new Set(['read', 'edit', 'search', 'execute', 'agent', 'todo']);
+check('harness-builder-portable-aliases', agentTools.length > 0
+  && agentTools.every((tool) => sharedAgentAliases.has(tool)), agentTools.join(', '));
+check('harness-builder-optional-persona', !/^agents:/m.test(agentFrontmatter)
+  && !/## Approach \(6-phase/.test(harnessBuilder));
+
+// Dual-host documentation contract. Keep live host execution manual, but make
+// the required compatibility claims and acceptance evidence deterministic.
+const customizationGuidance = readFileSync(join(ROOT, '.github', 'instructions', 'customization-authoring.instructions.md'), 'utf8');
+const architectureGuidance = readFileSync(join(ROOT, '.github', 'skills', 'scaffold-harness', 'references', 'starter-harness', 'architecture.md'), 'utf8');
+const readmeGuidance = readFileSync(join(ROOT, 'README.md'), 'utf8');
+const adoptingGuidance = readFileSync(join(ROOT, 'ADOPTING.md'), 'utf8');
+const manualAcceptance = readFileSync(join(ROOT, 'tests', 'scaffold-new-project.test.md'), 'utf8');
+
+check('dual-host-customization-guidance', /shared modular-instruction trigger/i.test(customizationGuidance)
+  && /VS Code-specific/i.test(customizationGuidance)
+  && /Agent Skills?.+canonical shared workflow/is.test(customizationGuidance)
+  && !/description field is the universal discovery surface/i.test(customizationGuidance));
+check('dual-host-architecture-guidance', /Agent Skill.+canonical shared workflow/is.test(architectureGuidance)
+  && /VS Code-specific/i.test(architectureGuidance)
+  && !/build-harness generator prompt is itself/is.test(architectureGuidance));
+check('dual-host-product-guidance', /VS Code Chat/.test(readmeGuidance)
+  && /GitHub Copilot CLI/.test(readmeGuidance)
+  && /Agent Skill/.test(readmeGuidance)
+  && /--migrate-instructions/.test(readmeGuidance)
+  && !/Copilot CLI.+prompt file/is.test(readmeGuidance));
+check('dual-host-adoption-contract', /Node\.js `>=18`.+harness/is.test(adoptingGuidance)
+  && /Copilot CLI installation requirements/i.test(adoptingGuidance)
+  && /inert shared hook/i.test(adoptingGuidance)
+  && /plan --target \. --profile standard --migrate-instructions/.test(adoptingGuidance)
+  && /init --target \. --profile standard --migrate-instructions --yes/.test(adoptingGuidance)
+  && !/bootstrap: canonical skill, optional agent, VS Code adapter/.test(adoptingGuidance));
+check('dual-host-manual-acceptance-contract', [
+  /## VS Code Chat acceptance/,
+  /## GitHub Copilot CLI acceptance/,
+  /\/env/,
+  /\/skills info build-harness/,
+  /\/build-harness/,
+  /Get-ChildItem -Force -Recurse/,
+  /Get-FileHash -Algorithm SHA256/,
+  /Compare-Object \(\$BeforeSnapshot/,
+  /stdinBase64: stdin\.toString\('base64'\)/,
+  /stdoutBase64: stdout\.toString\('base64'\)/,
+  /Set-Content \.github\/hooks\/acceptance-capture\.json/,
+  /Remove-Item \.github\/hooks\/acceptance-capture\.json -Force/,
+  /SKIP:/,
+].every((claim) => claim.test(manualAcceptance)));
 
 // --- Placeholder substitution for the human/agent-fill template blanks. --------
 const MAP = {
@@ -222,17 +317,16 @@ try {
 
   // Generator contract — every owning surface points to the canonical catalog
   // and names the supported profiles without replicating its artifact roster.
-  const contractFiles = [
-    '.github/prompts/build-harness.prompt.md',
-    '.github/skills/scaffold-harness/SKILL.md',
-    '.github/agents/harness-builder.agent.md',
-    'ADOPTING.md',
-    'tests/scaffold-new-project.test.md',
-  ];
+  const contractFiles = new Map([
+    ['.github/skills/build-harness/SKILL.md', '../scaffold-harness/references/adoption-profiles.json'],
+    ['.github/skills/scaffold-harness/SKILL.md', '.github/skills/scaffold-harness/references/adoption-profiles.json'],
+    ['ADOPTING.md', '.github/skills/scaffold-harness/references/adoption-profiles.json'],
+    ['tests/scaffold-new-project.test.md', '.github/skills/scaffold-harness/references/adoption-profiles.json'],
+  ]);
   const contractOmissions = [];
-  for (const file of contractFiles) {
+  for (const [file, catalogReference] of contractFiles) {
     const text = readFileSync(join(ROOT, file), 'utf8');
-    if (!text.includes('.github/skills/scaffold-harness/references/adoption-profiles.json')) {
+    if (!text.includes(catalogReference)) {
       contractOmissions.push(`${file}: profile catalog`);
     }
     for (const profile of PROFILE_NAMES) {
@@ -799,19 +893,45 @@ try {
         hooks: { agentstop: [{ type: 'command', command: 'node harness-scripts/session-end.mjs' }] },
       }));
     });
-  // Positive: the PascalCase family is still accepted exactly (both families kept).
+  for (const event of ['userPromptSubmit', 'stop', 'AgentStop']) {
+    expectFail(`validator-hooks-config-${event}-negative`, 'hooks-config', hooksConfig,
+      () => {
+        mkdirSync(dirname(hooksConfig), { recursive: true });
+        writeFileSync(hooksConfig, JSON.stringify({
+          version: 1,
+          hooks: { [event]: [{ type: 'command', command: 'node harness-scripts/session-end.mjs' }] },
+        }));
+      });
+  }
+  for (const event of ['Stop', 'agentStop']) {
+    expectFail(`validator-hooks-config-${event}-session-end-negative`, 'hooks-config', hooksConfig,
+      () => {
+        mkdirSync(dirname(hooksConfig), { recursive: true });
+        writeFileSync(hooksConfig, JSON.stringify({
+          version: 1,
+          hooks: { [event]: [{ type: 'command', command: 'node harness-scripts/session-end.mjs' }] },
+        }));
+      });
+  }
+  // Positive: each host's exact documented names are accepted independently.
   mkdirSync(dirname(hooksConfig), { recursive: true });
-  writeFileSync(hooksConfig, JSON.stringify({
-    version: 1,
-    hooks: {
+  let exactHostEventsClean = true;
+  for (const hooks of [
+    {
       SessionStart: [{ type: 'command', command: 'node harness-scripts/session-start.mjs' }],
-      AgentStop: [{ type: 'command', command: 'node harness-scripts/session-end.mjs' }],
+      Stop: [{ type: 'command', command: 'node harness-scripts/backpressure-stats.mjs' }],
     },
-  }));
-  const vHooksPascal = runNode(target, 'harness-scripts/validate-harness.mjs');
+    {
+      sessionStart: [{ type: 'command', command: 'node harness-scripts/session-start.mjs' }],
+      agentStop: [{ type: 'command', command: 'node harness-scripts/backpressure-stats.mjs' }],
+      sessionEnd: [{ type: 'command', command: 'node harness-scripts/session-end.mjs' }],
+    },
+  ]) {
+    writeFileSync(hooksConfig, JSON.stringify({ version: 1, hooks }));
+    exactHostEventsClean &&= runNode(target, 'harness-scripts/validate-harness.mjs').code === 0;
+  }
   writeFileSync(hooksConfig, originalHooksConfig);
-  check('validator-hooks-config-pascalcase-clean', vHooksPascal.code === 0,
-    `exit ${vHooksPascal.code}${vHooksPascal.stderr ? ' — ' + vHooksPascal.stderr.trim() : ''}`);
+  check('validator-hooks-config-exact-host-events-clean', exactHostEventsClean);
 
   // --- Check 8 — incident-record schema negative cases (missing id, undeclared
   // detection_signal.type, missing remediation.layer/kind, resolution line with
@@ -1165,7 +1285,12 @@ try {
   const bfGitignore = join(target5, '.gitignore');
   writeFileSync(bfGitignore, 'node_modules/\ndist/\n');
 
-  // Reconcile (what scaffold-harness / the agent does deterministically):
+  // Before consent, preserve the legacy file and make no AGENTS migration.
+  check('brownfield-copilot-instructions-preserved-before-consent',
+    readFileSync(bfCopilot, 'utf8') === '# Legacy always-on\n\nMigrate me into AGENTS.md project sections.\n');
+
+  // Reconcile after explicit migration consent (what scaffold-harness / the
+  // agent does deterministically):
   //   a. inject the managed block (appended — no block present yet),
   //   b. append-if-line-missing the harness .gitignore lines,
   //   c. migrate-and-delete the co-shipped copilot-instructions.md.
@@ -1196,7 +1321,7 @@ try {
     giFinal.includes('node_modules/') && giFinal.includes('dist/') && giFinal.includes('.copilot-tracking/'),
     `gitignore=${JSON.stringify(giFinal)}`);
 
-  // migrate-and-delete removed the co-shipped always-on file.
+  // Explicitly consented migrate-and-delete removed the co-shipped file.
   check('brownfield-copilot-instructions-removed', !existsSync(bfCopilot));
 
   // Normal validator run on the reconciled tree is clean: Check 5 resolved (no

@@ -9,7 +9,7 @@ import { createPlan } from '../installer/lib/planner.mjs';
 import { buildInstallation } from '../installer/lib/manifest.mjs';
 import { executePlan } from '../installer/lib/transaction.mjs';
 import { inspectInstallation, run } from '../installer/lib/app.mjs';
-import { sha256 } from '../installer/lib/catalog.mjs';
+import { loadCatalog, sha256, validateCatalog } from '../installer/lib/catalog.mjs';
 
 test('parser defaults the target and leaves profile resolution to the catalog', () => {
   const options = parseArgs(['plan'], 'C:\\work\\demo');
@@ -17,12 +17,13 @@ test('parser defaults the target and leaves profile resolution to the catalog', 
   assert.equal(options.target, resolve('C:\\work\\demo'));
   assert.equal(options.profile, undefined);
   assert.equal(options.dryRun, false);
+  assert.equal(options.migrateInstructions, false);
 });
 
 test('parser accepts inline values and mutation flags', () => {
   const options = parseArgs([
     'init', '--target=repo', '--profile', 'full', '--project-name', 'Demo',
-    '--project-slug=demo', '--json', '--yes',
+    '--project-slug=demo', '--json', '--yes', '--migrate-instructions',
   ], 'C:\\work');
   assert.equal(options.target, resolve('C:\\work', 'repo'));
   assert.equal(options.profile, 'full');
@@ -30,6 +31,7 @@ test('parser accepts inline values and mutation flags', () => {
   assert.equal(options.projectSlug, 'demo');
   assert.equal(options.json, true);
   assert.equal(options.yes, true);
+  assert.equal(options.migrateInstructions, true);
 });
 
 test('parser rejects unknown profiles and options', () => {
@@ -40,6 +42,7 @@ test('parser rejects unknown profiles and options', () => {
 test('parser restricts mutation and project flags by command', () => {
   assert.throws(() => parseArgs(['status', '--dry-run']), UsageError);
   assert.throws(() => parseArgs(['validate', '--yes']), UsageError);
+  assert.throws(() => parseArgs(['status', '--migrate-instructions']), UsageError);
   assert.throws(() => parseArgs(['update', '--project-name', 'Demo']), UsageError);
   assert.throws(() => parseArgs(['init', '--json']), UsageError);
 });
@@ -53,6 +56,33 @@ function fixture() {
   const target = mkdtempSync(join(tmpdir(), 'starter-harness-'));
   return { target, cleanup: () => rmSync(target, { recursive: true, force: true }) };
 }
+
+function catalogFixture() {
+  return structuredClone(loadCatalog().catalog);
+}
+
+test('catalog rejects unknown hosts and capabilities', () => {
+  const unknownHost = catalogFixture();
+  unknownHost.artifacts['agents-brief'].hosts = ['other-host'];
+  assert.throws(() => validateCatalog(unknownHost), /unknown host other-host/);
+
+  const unknownCapability = catalogFixture();
+  unknownCapability.artifacts['agents-brief'].capability = 'other-capability';
+  assert.throws(() => validateCatalog(unknownCapability), /unknown capability other-capability/);
+});
+
+test('catalog requires the canonical skill in the generator core and full union', () => {
+  const missingSkill = catalogFixture();
+  missingSkill.artifacts['build-harness-skill'].capability = 'harness-core';
+  assert.throws(
+    () => validateCatalog(missingSkill),
+    /generator core is missing \.github\/skills\/build-harness\/SKILL\.md/,
+  );
+
+  const incompleteFull = catalogFixture();
+  incompleteFull.profiles.full = incompleteFull.profiles.full.filter((id) => id !== 'build-harness-skill');
+  assert.throws(() => validateCatalog(incompleteFull), /full profile is not the artifact union/);
+});
 
 async function runQuiet(options) {
   const originalLog = console.log;
@@ -115,13 +145,20 @@ test('plan resolves the catalog default without writing', () => {
   } finally { cleanup(); }
 });
 
-test('brownfield plan preserves project AGENTS content and migrates legacy guidance', () => {
+test('brownfield plan requires explicit consent before instruction migration', () => {
   const { target, cleanup } = fixture();
   try {
     writeFileSync(join(target, 'AGENTS.md'), '# Existing\n\nKeep me.\n');
     mkdirSync(join(target, '.github'), { recursive: true });
     writeFileSync(join(target, '.github', 'copilot-instructions.md'), 'Legacy rule.\n');
-    const plan = createPlan({ command: 'plan', target, profile: 'doc-only' });
+    const preserved = readFileSync(join(target, '.github', 'copilot-instructions.md'), 'utf8');
+    const blocked = createPlan({ command: 'plan', target, profile: 'doc-only', yes: true });
+    assert.match(blocked.conflicts.map((item) => item.reason).join('\n'), /--migrate-instructions/);
+    assert.equal(blocked.operations.some((operation) => operation.path === 'AGENTS.md'), false);
+    assert.equal(blocked.operations.some((operation) => operation.type === 'delete'), false);
+    assert.equal(readFileSync(join(target, '.github', 'copilot-instructions.md'), 'utf8'), preserved);
+
+    const plan = createPlan({ command: 'plan', target, profile: 'doc-only', migrateInstructions: true });
     const agents = plan.operations.find((operation) => operation.path === 'AGENTS.md');
     assert.match(agents.content, /Keep me/);
     assert.match(agents.content, /Legacy rule/);
@@ -148,10 +185,10 @@ test('standard omits the generator bootstrap and full includes its complete atom
     const full = createPlan({ command: 'plan', target, profile: 'full' });
     const standardPaths = new Set(standard.operations.map((operation) => operation.path));
     const fullPaths = new Set(full.operations.map((operation) => operation.path));
-    assert.equal(standardPaths.has('.github/prompts/build-harness.prompt.md'), false);
+    assert.equal(standardPaths.has('.github/skills/build-harness/SKILL.md'), false);
     assert.equal(standardPaths.has('.github/skills/scaffold-harness/assets/templates/AGENTS.md.template'), false);
     for (const path of [
-      '.github/prompts/build-harness.prompt.md',
+      '.github/skills/build-harness/SKILL.md',
       '.github/agents/harness-builder.agent.md',
       '.github/skills/scaffold-harness/SKILL.md',
       '.github/skills/scaffold-harness/references/adoption-profiles.json',
@@ -168,9 +205,9 @@ test('standard omits the generator bootstrap and full includes its complete atom
 test('full plan rejects a partially present generator bootstrap', () => {
   const { target, cleanup } = fixture();
   try {
-    const prompt = join(target, '.github', 'prompts', 'build-harness.prompt.md');
-    mkdirSync(join(target, '.github', 'prompts'), { recursive: true });
-    writeFileSync(prompt, 'local prompt\n');
+    const skill = join(target, '.github', 'skills', 'build-harness', 'SKILL.md');
+    mkdirSync(join(target, '.github', 'skills', 'build-harness'), { recursive: true });
+    writeFileSync(skill, 'local skill\n');
     const plan = createPlan({ command: 'plan', target, profile: 'full' });
     assert.match(plan.conflicts.map((item) => item.reason).join('\n'), /atomic group generator-bootstrap is partially present/);
   } finally { cleanup(); }
@@ -265,12 +302,17 @@ test('status reports a removed owned append line as drift', async () => {
   } finally { cleanup(); }
 });
 
-test('legacy-only brownfield state migrates content before the managed block', () => {
+test('legacy-only brownfield state migrates only with explicit consent', () => {
   const { target, cleanup } = fixture();
   try {
     mkdirSync(join(target, '.github'), { recursive: true });
     writeFileSync(join(target, '.github', 'copilot-instructions.md'), 'Preserve this.\n');
-    const plan = createPlan({ command: 'plan', target, profile: 'doc-only' });
+    const blocked = createPlan({ command: 'plan', target, profile: 'doc-only' });
+    assert.match(blocked.conflicts.map((item) => item.reason).join('\n'), /--migrate-instructions/);
+    assert.equal(blocked.operations.some((operation) => operation.type === 'delete'), false);
+    assert.equal(readFileSync(join(target, '.github', 'copilot-instructions.md'), 'utf8'), 'Preserve this.\n');
+
+    const plan = createPlan({ command: 'plan', target, profile: 'doc-only', migrateInstructions: true });
     const agents = plan.operations.find((operation) => operation.path === 'AGENTS.md').content;
     assert.ok(agents.indexOf('Preserve this.') < agents.indexOf('HARNESS:BEGIN'));
     assert.equal(plan.operations.some((operation) => operation.type === 'delete'), true);
@@ -305,7 +347,7 @@ test('update supports cumulative full upgrade and refuses downgrade', async () =
     const code = await runQuiet({ command: 'update', target, profile: 'full', yes: true, json: true, dryRun: false });
     assert.equal(code, 0);
     assert.equal(existsSync(join(target, '.github', 'workflows', 'validate.yml')), true);
-    assert.equal(existsSync(join(target, '.github', 'prompts', 'build-harness.prompt.md')), true);
+    assert.equal(existsSync(join(target, '.github', 'skills', 'build-harness', 'SKILL.md')), true);
     assert.equal(existsSync(join(target, '.github', 'agents', 'harness-builder.agent.md')), true);
     assert.equal(existsSync(join(target, '.github', 'skills', 'scaffold-harness', 'SKILL.md')), true);
     assert.equal(existsSync(join(target, '.github', 'skills', 'scaffold-harness', 'references', 'starter-harness', 'index.md')), true);
@@ -323,11 +365,11 @@ test('full update preserves a locally modified generator bootstrap file', async 
   const { target, cleanup } = fixture();
   try {
     await runQuiet({ command: 'init', target, profile: 'full', yes: true, json: true, dryRun: false });
-    const prompt = join(target, '.github', 'prompts', 'build-harness.prompt.md');
-    writeFileSync(prompt, 'local edit\n');
+    const skill = join(target, '.github', 'skills', 'build-harness', 'SKILL.md');
+    writeFileSync(skill, 'local edit\n');
     const plan = createPlan({ command: 'update', target, profile: 'full' });
     assert.match(plan.conflicts.map((item) => item.reason).join('\n'), /locally modified/);
-    assert.equal(readFileSync(prompt, 'utf8'), 'local edit\n');
+    assert.equal(readFileSync(skill, 'utf8'), 'local edit\n');
   } finally { cleanup(); }
 });
 
@@ -483,7 +525,15 @@ test('brownfield standard init migrates legacy guidance and baseline-validates',
     writeFileSync(join(target, '.github', 'copilot-instructions.md'), 'Legacy guidance.\n');
     mkdirSync(join(target, 'project-notes'), { recursive: true });
     writeFileSync(join(target, 'project-notes', 'legacy.md'), `${'AKIA'}${'ABCDEFGHIJKLMNOP'}\n`);
-    const code = await runQuiet({ command: 'init', target, profile: 'standard', yes: true, json: true, dryRun: false });
+    const declined = await runQuiet({ command: 'init', target, profile: 'standard', yes: true, json: true, dryRun: false });
+    assert.equal(declined, 1);
+    assert.equal(readFileSync(join(target, '.github', 'copilot-instructions.md'), 'utf8'), 'Legacy guidance.\n');
+    assert.equal(existsSync(join(target, 'harness', 'installation.yml')), false);
+
+    const code = await runQuiet({
+      command: 'init', target, profile: 'standard', yes: true, json: true, dryRun: false,
+      migrateInstructions: true,
+    });
     assert.equal(code, 0);
     assert.equal(existsSync(join(target, '.github', 'copilot-instructions.md')), false);
     const agents = readFileSync(join(target, 'AGENTS.md'), 'utf8');

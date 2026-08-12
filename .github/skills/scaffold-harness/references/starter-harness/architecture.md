@@ -9,21 +9,23 @@ project architecture belongs in the target repository's `knowledge-base/`.
 | Primitive | File | Discovery surface | Role |
 |-----------|------|-------------------|------|
 | Root brief | `AGENTS.md` | Always-on | Project-wide baseline; loaded every session |
-| Instructions | `.github/instructions/*.instructions.md` | `description` + `applyTo` glob | Path-scoped or on-demand rules |
-| Prompt | `.github/prompts/*.prompt.md` | `description` (slash `/`) | Thin, parameterized task entrypoint |
-| Agent | `.github/agents/*.agent.md` | `description` (picker / subagent) | Persona with scoped tools |
-| Skill | `.github/skills/<name>/SKILL.md` | `description` (slash `/` + auto-load) | On-demand multi-step workflow with bundled assets |
+| Instructions | `.github/instructions/*.instructions.md` | Shared `applyTo` glob; VS Code semantic routing | Modular path-scoped rules |
+| Skill | `.github/skills/<name>/SKILL.md` | Shared skill discovery and host invocation | Canonical shared multi-step workflow with bundled assets |
+| Agent | `.github/agents/*.agent.md` | Shared agent file; host-specific picker refinements | Optional persona with scoped shared tool aliases |
+| Prompt | `.github/prompts/*.prompt.md` | VS Code-specific prompt picker | Thin parameterized VS Code adapter |
 
-The **`description` field is the universal discovery surface** across every
-primitive. If the trigger phrases are not in the description, the agent never
-loads the file. Use the `USE FOR:` / `DO NOT USE FOR:` keyword pattern.
+Descriptions are required, keyword-rich metadata. VS Code uses descriptions for
+semantic routing, but that behavior is not a shared host contract. Use `applyTo`
+as the shared modular-instruction trigger and Agent Skills as the canonical
+shared workflow surface.
 
 ## Composition patterns
 
-1. **Prompt → Agent (entrypoint boots persona).** A thin `*.prompt.md` sets
-   `agent: harness-builder`, initializes state, and fires the first phase. The
-   persona and depth live in the `*.agent.md`. Here: `build-harness.prompt.md` →
-   `harness-builder.agent.md`.
+1. **Skill → optional host adapters.** The `build-harness` Agent Skill owns the
+  complete workflow. VS Code may add a thin prompt with `${input:...}` or a
+  named-agent refinement, but those VS Code-specific adapters delegate to the
+  skill and never duplicate its gates. Copilot CLI invokes the skill directly;
+  it does not discover `.github/prompts` as a workflow surface.
 
 2. **Agent → Instructions (path-scoped auto-activation).** The agent writes state
    under committed `harness/state/{slug}/`. Instruction files carry
@@ -31,16 +33,16 @@ loads the file. Use the `USE FOR:` / `DO NOT USE FOR:` keyword pattern.
    auto-attaches whenever files in that tree are touched. This **state-folder +
    path-scoped instructions** pairing is the core harness self-activation pattern.
 
-3. **Agent → Subagents + Handoffs.** An agent can restrict delegation via
-   `agents: [...]` and chain to other personas via `handoffs:`. (Baseline v1 keeps
-   this minimal.)
+3. **Agent → host refinements.** Shared agents use common tool aliases. Named
+  subagents and handoffs are host-specific refinements and remain optional.
 
 4. **Skill → references/ + assets/ (progressive disclosure).** A `SKILL.md` is a
    thin index; deep content and templates live in linked files loaded only when
    referenced. Discovery (~100 tokens) → body (<5000 tokens) → resources.
 
-5. **Routing by `description`.** Skills, prompts, and agents are all selected by
-   keyword-rich descriptions; skills and prompts share the `/` slash menu.
+5. **Explicit shared invocation.** Skills are the portable named workflows.
+  Slash menus, semantic description routing, and prompt pickers are host UX and
+  must be verified separately.
 
 6. **AGENTS.md as the always-on root.** Provides the project-wide baseline and
    points to (does not duplicate) the on-demand primitives.
@@ -128,10 +130,9 @@ instructions approach unless the sub-projects are genuinely autonomous.
 ## The self-hosting generator model
 
 This starter harness both **uses** this shape (self-hosting) and **emits** it. The
-`build-harness` generator prompt is itself a harness component (a `*.prompt.md`) whose
-body instructs the `harness-builder` agent to author the *other* components into a
-target repo, drawing on the scaffold skill's `assets/templates/` directory.
-Emission is idempotent:
+`build-harness` Agent Skill is the canonical shared workflow. It can use the
+optional `harness-builder` persona and draws on the scaffold skill's
+`assets/templates/` directory. Emission is idempotent:
 discovery-before-generation, non-destructive create-missing-only, and per-phase
 state persistence.
 
@@ -148,7 +149,7 @@ deterministic.
 | **L0 Doc harness** (always present) | AGENTS.md + instructions/skills/prompts/agents + knowledge-base | Agent-interpreted | n/a — this is the spec |
 | **L1 Constraint** (optional) | `harness-scripts/validate-harness.mjs` (frontmatter, skill-name, `applyTo`, features schema, links, tracking-paths, incident-log integrity, AGENTS.md line budget, secret-scan, agent-hooks config consistency, script-import resolution, generator emit-contract coverage), plus `harness-scripts/doctor.mjs` (hard-gated tool/dependency pre-flight, reading `harness/doctor.yml`; consistency-checked by validator Check 14); a missing required tool is also surfaced as a `doctor-missing-tool` repair directive by `harness-scripts/heal-harness.mjs` | Yes (no LLM) | Yes — absent runtime → agent-driven checks only |
 | **L2 CI + local hook** (`full`) | `.github/workflows/validate.yml`, `.githooks/pre-commit` | Yes | Yes; `full` emits both, and the local hook still requires explicit activation through `core.hooksPath` |
-| **L2.5 Agent hooks** (`full`) | `.github/hooks/hooks.json` | No (runtime-dependent on the GitHub Copilot agent-hooks feature) | Yes; its stdout is plain text rather than context-injection JSON, so it automates only the trigger |
+| **L2.5 Agent hooks** (`full`) | `.github/hooks/hooks.json` | No (runtime-dependent on each host's agent-hooks feature) | Yes; the shared file is inert until pinned host payload bytes justify event-specific adapters |
 | **L3 Session bootstrap** (optional) | `harness-scripts/session-start.mjs` | Yes (read-only) | Yes — missing sources degrade to a labeled note |
 | **L4 Re-engage + loop guards** (optional) | `harness-scripts/heal-harness.mjs` (structured repair directives, exit 2), plus `harness-scripts/guard.mjs` reading `harness/guards.yml` — declared loop guards (`heal-loop-cap`, `no-progress`) evaluated at gate-run boundaries, with cross-run counters in gitignored `.copilot-tracking/guards/state.json` | Yes (no LLM) | Yes — an absent/unparseable manifest or unwritable state degrades to "no guard", i.e. pre-guard behavior |
 
@@ -177,8 +178,10 @@ Principles:
   adoption-profile catalog. `doc-only` emits Layer 0, `standard` is the default
   and adds the atomic L1/L3/L4 executable group plus manifests, and `full` adds
   L2/L2.5 automation. Scripts remain inert until a runtime is present. The local
-  hook is never activated automatically, and agent hooks automate the trigger
-  only because their scripts print plain text rather than context-injection JSON.
+  hook is never activated automatically, and the shared agent-hooks file has no
+  event wiring. Run session scripts manually until adapters are validated for
+  exact VS Code `SessionStart`/`Stop` and Copilot CLI
+  `sessionStart`/`agentStop`/`sessionEnd` events.
 - **Location-agnostic ROOT discovery.** The four scripts that need the repo root
   (`validate-harness.mjs`, `session-start.mjs`, `session-end.mjs`,
   `backpressure-stats.mjs`) resolve it with an anchor-search (`findRepoRoot`):

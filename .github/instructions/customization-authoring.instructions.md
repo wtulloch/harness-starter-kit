@@ -1,34 +1,51 @@
 ---
-description: "Author and validate VS Code agent customization files. USE FOR: creating or fixing *.instructions.md, *.prompt.md, *.agent.md, or SKILL.md; writing frontmatter; choosing applyTo globs; making a description discoverable; deciding instruction vs skill vs prompt vs agent. DO NOT USE FOR: general coding tasks or non-customization Markdown."
+description: "Author and validate GitHub Copilot customization files for VS Code and Copilot CLI. USE FOR: creating or fixing *.instructions.md, *.prompt.md, *.agent.md, or SKILL.md; writing frontmatter; choosing applyTo globs; separating shared artifacts from VS Code adapters. DO NOT USE FOR: general coding tasks or non-customization Markdown."
 applyTo: '**/.github/instructions/**,**/.github/skills/**,**/.github/prompts/**,**/.github/agents/**'
 ---
 
 # Customization Authoring
 
-Guidance for authoring well-formed VS Code / Copilot customization files.
+Guidance for authoring well-formed GitHub Copilot customization files across VS
+Code Chat and Copilot CLI.
+
+## Host boundary
+
+Agent Skills are the canonical shared workflow surface. Both hosts discover
+`.github/skills/<name>/SKILL.md`; keep reusable workflow gates and bundled
+references there. Instructions with `applyTo` are the shared
+modular-instruction trigger, and agents intended for both hosts must use the
+documented shared tool aliases.
+
+Semantic `description` routing, `.github/prompts/*.prompt.md`, `${input:...}`
+interpolation, and prompt-to-named-agent refinements are VS Code-specific. They
+may provide a thin VS Code adapter, but they must not own workflow logic or be
+presented as a Copilot CLI command surface.
 
 ## Choose the right primitive
 
 - **Instruction** (`*.instructions.md`) — applies to *most* work in a scope, or a
-  path-scoped standard. Discovered by `description` and/or auto-attached via
-  `applyTo` glob.
+  path-scoped standard. `applyTo` is the shared modular-instruction trigger;
+  semantic `description` routing is a VS Code refinement.
 - **Skill** (`SKILL.md`) — a *specific*, repeatable multi-step workflow with
-  bundled assets (`scripts/`, `references/`). Slash `/` + model auto-load.
+  bundled assets (`scripts/`, `references/`). This is the canonical shared
+  workflow primitive; each host controls its slash and model-loading UX.
 - **Prompt** (`*.prompt.md`) — a single focused task with `${input:...}` params.
-  A thin entrypoint that often binds to an agent via `agent:`.
+  A thin VS Code-specific entrypoint that can bind to an agent via `agent:`.
 - **Agent** (`*.agent.md`) — a persona with scoped `tools`, optional `model`,
-  `agents`, and `handoffs`. Use when steps need different tool restrictions or
-  context isolation (subagent returns one output).
+  and host refinements such as `agents` and `handoffs`. Keep portable agents on
+  shared tool aliases; use host-only refinements only in explicit adapters.
 
 Disambiguation: Instructions vs Skill → broad vs specific. Skill vs Prompt →
 multi-step + assets vs single parameterized task. Skill vs Agent → same tools for
 all steps vs per-stage tool restriction / context isolation.
 
-## Description is the discovery surface
+## Description quality
 
-The `description` decides whether the file is ever loaded. Use the
-`USE FOR:` / `DO NOT USE FOR:` keyword pattern with concrete trigger phrases. A
-vague description fails silently.
+Descriptions remain required metadata and should use the `USE FOR:` / `DO NOT
+USE FOR:` keyword pattern with concrete trigger phrases. VS Code also uses them
+for semantic routing. Do not assume that semantic routing behavior is portable
+to Copilot CLI; use `applyTo` for shared instruction activation and explicit
+skill invocation for shared workflows.
 
 ## Frontmatter rules per primitive
 

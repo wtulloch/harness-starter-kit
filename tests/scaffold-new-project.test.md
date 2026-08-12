@@ -2,8 +2,9 @@
 # Test: Scaffold the Starter Harness into a New Project (End-to-End)
 
 Manual acceptance test that validates using this starter harness to bootstrap a
-**brand-new project** via the `/build-harness` generator (bound to the
-`harness-builder` agent) and the `scaffold-harness` skill.
+**brand-new project** through the canonical `/build-harness` Agent Skill and the
+`scaffold-harness` skill. Run the pinned host matrix first, then use the shared
+stages for post-confirmation behavior.
 
 - **Type**: end-to-end / smoke (manual, agent-driven with deterministic checks)
 - **Under test**: the generator flow, template emission, non-destructive re-run,
@@ -13,13 +14,167 @@ Manual acceptance test that validates using this starter harness to bootstrap a
 
 ---
 
+## Pinned two-host acceptance matrix
+
+Run each host against a separate disposable target installed from the same
+immutable package commit. Record the full 40-character `PACKAGE_SHA`, exact host
+build, target path, optional agent availability, hook payload bytes, and result.
+Do not substitute mutable `main`.
+
+| Host | Disposable target | Required discovery route | Optional agent | Hook events to capture |
+|------|-------------------|--------------------------|----------------|------------------------|
+| VS Code Chat | `harness-vscode-acceptance` | One unambiguous route: `/build-harness` resolves the Agent Skill directly | Record whether `harness-builder` appears; absence is not a workflow failure | `SessionStart`, `Stop` |
+| GitHub Copilot CLI | `harness-cli-acceptance` | `/env`, `/skills info build-harness`, then `/build-harness` | Record `/agent` or equivalent selection availability; absence is not a workflow failure | `sessionStart`, `agentStop`, `sessionEnd` |
+
+For each target, initialize Git, make a seed commit, and install `full` from the
+immutable package commit. Record the accepted source SHA from
+`harness/installation.yml` and verify it equals `PACKAGE_SHA`. Then record a
+baseline snapshot before invoking the host. The snapshot enumerates hidden,
+untracked, and ignored entries and excludes only Git's internal `.git` directory:
+
+```powershell
+$PACKAGE_SHA = '<ACCEPTED-40-CHARACTER-COMMIT-SHA>'
+$PACKAGE = "github:wtulloch/harness-starter-kit#$PACKAGE_SHA"
+npx --yes $PACKAGE plan --target . --profile full
+npx --yes $PACKAGE init --target . --profile full --yes
+git add -A
+git commit -qm "install pinned harness"
+function Get-WorktreeSnapshot {
+   Get-ChildItem -Force -Recurse | Where-Object {
+      $_.FullName -notmatch '[\\/]\.git(?:[\\/]|$)'
+   } | ForEach-Object {
+      $RelativePath = [IO.Path]::GetRelativePath((Get-Location).Path, $_.FullName)
+      if ($_.PSIsContainer) {
+         [pscustomobject]@{ Path = $RelativePath; Type = 'directory'; Hash = $null }
+      } else {
+         [pscustomobject]@{ Path = $RelativePath; Type = 'file'; Hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName).Hash }
+      }
+   } | Sort-Object Path | ConvertTo-Json -Depth 3
+}
+$BeforeSnapshot = Get-WorktreeSnapshot
+```
+
+The package installation is the planned setup mutation. The host invocation must
+then reach the skill's confirmation-before-write gate with no target mutation.
+Capture `$AfterSnapshot = Get-WorktreeSnapshot`, run
+`Compare-Object ($BeforeSnapshot | ConvertFrom-Json) ($AfterSnapshot |
+ConvertFrom-Json) -Property Path,Type,Hash`, and require no output. Do not approve
+the plan until that comparison is captured. Fail if either host writes a tracked,
+untracked, or ignored entry before explicit confirmation.
+
+Record unavailable prerequisites as an explicit skip instead of a pass:
+
+```text
+SKIP: <host> - <missing binary | authentication | license | feature flag> - <exact observed reason>
+```
+
+Do not use `SKIP:` for discovery ambiguity, early mutation, the wrong package
+SHA, or a malformed hook payload. Those are failures.
+
+## VS Code Chat acceptance
+
+Before starting VS Code, configure a temporary capture hook and an evidence path
+outside the disposable target. The capture wrapper records exact stdin and the
+exact JSON bytes it returns to the host:
+
+```powershell
+$EvidenceRoot = Join-Path (Split-Path (Get-Location)) 'harness-vscode-hook-evidence'
+$CaptureScript = Join-Path $EvidenceRoot 'capture-hook.mjs'
+New-Item -ItemType Directory -Force $EvidenceRoot, .github/hooks | Out-Null
+@'
+import { appendFileSync } from 'node:fs';
+const [event, evidencePath] = process.argv.slice(2);
+const chunks = [];
+for await (const chunk of process.stdin) chunks.push(chunk);
+const stdin = Buffer.concat(chunks);
+const stdout = Buffer.from('{}\n');
+appendFileSync(evidencePath, `${JSON.stringify({ event, stdinBase64: stdin.toString('base64'), stdoutBase64: stdout.toString('base64'), exitCode: 0 })}\n`);
+process.stdout.write(stdout);
+'@ | Set-Content -NoNewline $CaptureScript
+$CaptureCommand = "node `"$CaptureScript`""
+@{ version = 1; hooks = @{
+   SessionStart = @(@{ type = 'command'; command = "$CaptureCommand SessionStart `"$EvidenceRoot/SessionStart.jsonl`"" })
+   Stop = @(@{ type = 'command'; command = "$CaptureCommand Stop `"$EvidenceRoot/Stop.jsonl`"" })
+} } | ConvertTo-Json -Depth 6 | Set-Content .github/hooks/acceptance-capture.json
+```
+
+Create this capture setup before assigning `$BeforeSnapshot`. Launch the pinned
+VS Code build from the same shell so it inherits the command environment.
+
+1. Create and open only the disposable `harness-vscode-acceptance` target in the
+   pinned VS Code build. Confirm Agent Skills are enabled.
+2. Verify `.github/skills/build-harness/SKILL.md` is discovered. Invoke one
+   unambiguous route: `/build-harness project-slug=vscode-acceptance profile=full
+   overwrite=false`. Do not invoke a prompt-file alias.
+3. Record whether the optional `harness-builder` agent is selectable. Continue
+   with the skill when it is absent.
+4. Stop at the confirmation gate. Run the filesystem snapshot comparison; it
+   must have no output.
+5. Verify `$EvidenceRoot/SessionStart.jsonl` and `$EvidenceRoot/Stop.jsonl` contain
+   base64 stdin and stdout records. Keep the installed shared `hooks.json` inert.
+6. Approve only after the no-mutation evidence is recorded, then run the shared
+   scaffold stages below.
+7. After recording evidence, run
+   `Remove-Item .github/hooks/acceptance-capture.json -Force` and
+   `Remove-Item $EvidenceRoot -Recurse -Force`.
+
+## GitHub Copilot CLI acceptance
+
+Create the same external `capture-hook.mjs` wrapper before assigning
+`$BeforeSnapshot`, but write the CLI event manifest with this command:
+
+```powershell
+@{ version = 1; hooks = @{
+   sessionStart = @(@{ type = 'command'; command = "$CaptureCommand sessionStart `"$EvidenceRoot/sessionStart.jsonl`"" })
+   agentStop = @(@{ type = 'command'; command = "$CaptureCommand agentStop `"$EvidenceRoot/agentStop.jsonl`"" })
+   sessionEnd = @(@{ type = 'command'; command = "$CaptureCommand sessionEnd `"$EvidenceRoot/sessionEnd.jsonl`"" })
+} } | ConvertTo-Json -Depth 6 | Set-Content .github/hooks/acceptance-capture.json
+```
+
+1. Create and enter only the disposable `harness-cli-acceptance` target. Start
+   the pinned authenticated Copilot CLI build with Agent Skills enabled.
+2. Run `/env` and record the CLI version, authentication state, repository root,
+   and feature state. Run `/skills info build-harness` and verify it resolves
+   `.github/skills/build-harness/SKILL.md` from the target.
+3. Invoke `/build-harness project-slug=cli-acceptance profile=full
+   overwrite=false`. Do not claim or test `.github/prompts` as a CLI command
+   surface.
+4. Record whether the optional `harness-builder` agent can be selected through
+   `/agent` or the pinned build's documented equivalent. Continue with the skill
+   when it is absent.
+5. Stop at the confirmation gate. Run the filesystem snapshot comparison and
+   require no output.
+6. Verify the three event JSONL files preserve event name, base64 stdin, base64
+   stdout, and exit code. Keep the installed shared `hooks.json` inert.
+7. Approve only after the no-mutation evidence is recorded, then run the shared
+   scaffold stages below.
+8. Exit the CLI, then remove `.github/hooks/acceptance-capture.json` and
+   `$EvidenceRoot` with the same teardown commands used for VS Code.
+
+## Acceptance record
+
+| Evidence | VS Code Chat | GitHub Copilot CLI |
+|----------|--------------|--------------------|
+| Host build |  |  |
+| Disposable target |  |  |
+| Immutable package commit |  |  |
+| Skill discovery |  |  |
+| Invocation route |  |  |
+| Optional agent availability |  |  |
+| Confirmation-before-write reached |  |  |
+| Status/tree unchanged |  |  |
+| Hook payload bytes captured |  |  |
+| PASS / FAIL / explicit `SKIP:` |  |  |
+
+---
+
 ## Preconditions
 
 | # | Requirement | Check |
 |---|-------------|-------|
 | P1 | `node` on PATH (for the optional executable layer) | `node --version` prints a version |
 | P2 | `git` on PATH (for tracking + session banner) | `git --version` prints a version |
-| P3 | This starter repo is open and its templates exist | `.github/skills/scaffold-harness/assets/templates/` contains the eight generator templates |
+| P3 | The pinned full-profile target contains the generator bootstrap | `.github/skills/build-harness/SKILL.md` and the scaffold templates exist |
 | P4 | A writable scratch location outside this repo | PowerShell: `C:\sandbox\harness-test-target`; Bash: `/c/sandbox/harness-test-target` (Git Bash) or `/mnt/c/sandbox/harness-test-target` (WSL) |
 
 > If Node is absent, P1 fails — run the **doc-only variant** (skip Stages 4–5 and
@@ -78,7 +233,8 @@ git add -A && git commit -qm "seed target"
 
 ## Stage 1 — Run the generator (Phases 0–2: detect → gather → confirm)
 
-**Action**: With `$TARGET` open, invoke the generator prompt:
+**Action**: With `$TARGET` open in the host under acceptance, invoke the canonical
+Agent Skill:
 
 ```
 /build-harness project-slug=demo-service stack="typescript, node"
@@ -171,7 +327,7 @@ Run this stage once with each profile: `doc-only`, default `standard`, and `full
 | `harness/incidents.jsonl` | Emitted (by default, no opt-in flag) as an **empty** file; `node harness-scripts/harness.mjs backpressure-stats` exits 0 reporting 0 signatures, and the review-session skill has a ledger to append to |
 | `.github/workflows/validate.yml` | `full` only; runs `node harness-scripts/validate-harness.mjs`, no install step |
 | `.githooks/pre-commit` | `full` only; emitted but **not** auto-enabled; opt-in `git config core.hooksPath .githooks` documented |
-| `.github/hooks/hooks.json` | `full` only; wires GitHub Copilot's `sessionStart`/`agentStop` to `session-start.mjs`/`session-end.mjs` |
+| `.github/hooks/hooks.json` | `full` only; emits an inert shared `hooks` object with no lifecycle wiring; session scripts remain read-only operator commands |
 | `harness/state/demo-service/state.md` | Records the selected profile when phase-aware state was requested |
 
 **Verify** (choose one shell):
@@ -348,10 +504,12 @@ git status --short
 
 ## Stage 7b — Brownfield adoption into a non-empty target
 
-**Action**: Repeat Stages 0–4 against a **pre-populated** target — one that already
+**Action**: Repeat Stages 0–4 against a **pre-populated** target, one that already
 has its own `AGENTS.md` (project-owned content), a `.github/copilot-instructions.md`,
 a populated `.gitignore` (with real ignore lines but no `.copilot-tracking/`), and
-a legacy file containing a secret-like string. Run the generator and let it adopt.
+a legacy file containing a secret-like string. First decline or omit instruction
+migration and verify that both instruction files remain unchanged. Then rerun,
+explicitly consent to instruction migration, and let the generator adopt.
 
 **Expected** — after Phase 3 reconciliation:
 
@@ -360,15 +518,17 @@ a legacy file containing a secret-like string. Run the generator and let it adop
 | Managed block injected | `AGENTS.md` contains the `HARNESS:BEGIN`/`HARNESS:END` sentinels and the four harness-owned headings between them |
 | Project sections preserved | The pre-existing project overview / build commands are unchanged |
 | `.gitignore` appended, not clobbered | Existing lines survive **and** `.copilot-tracking/` is now present |
-| Migrate-and-delete | `.github/copilot-instructions.md` is gone (its content migrated into `AGENTS.md` first); a normal validate run reports no `FAIL: always-on` |
+| Consent required | Before explicit migration consent, `.github/copilot-instructions.md` is preserved byte-for-byte and no AGENTS reconciliation write occurs |
+| Consented migrate-and-delete | After explicit consent, `.github/copilot-instructions.md` is gone (its content migrated into `AGENTS.md` first); a normal validate run reports no `FAIL: always-on` |
 | Check 17 gate | Stripping a required heading from the managed block yields `FAIL: managed-block` |
 | Baseline posture | `node harness-scripts/validate-harness.mjs --baseline` downgrades the secret-like hit to a non-gating `WARN: secret-scan` (exit 0); a normal run reports `FAIL: secret-scan` (exit 1) |
 
 **Verify**: the automated slice
 [scaffold-new-project.test.mjs](scaffold-new-project.test.mjs) covers this stage
 via its `brownfield-*` cases (managed-block injection, project-section
-preservation, `.gitignore` append, migrate-and-delete, Check 17 positive/negative,
-and the `--baseline` secret-scan posture).
+preservation, `.gitignore` append, pre-consent preservation, consented
+migrate-and-delete, Check 17 positive/negative, and the `--baseline` secret-scan
+posture).
 
 - **Result**: ☐ PASS ☐ FAIL
 

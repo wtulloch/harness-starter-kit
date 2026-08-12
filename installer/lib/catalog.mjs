@@ -11,17 +11,39 @@ export const CATALOG_PATH = resolve(
 
 export const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 
+const HOSTS = new Set(['shared', 'vscode', 'copilot-cli']);
+const CAPABILITIES = new Set([
+  'harness-core',
+  'executable-layer',
+  'generator-core',
+  'generator-vscode-adapter',
+  'hook-adapter',
+]);
+const GENERATOR_SKILL = '.github/skills/build-harness/SKILL.md';
+
 function isContained(root, candidate) {
   const rel = relative(root, candidate);
   return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
 }
 
-export function loadCatalog() {
-  const raw = readFileSync(CATALOG_PATH, 'utf8');
-  const catalog = JSON.parse(raw);
+export function validateCatalog(catalog, packageRoot = PACKAGE_ROOT) {
   const errors = [];
   if (catalog.schemaVersion !== 1) errors.push('unsupported catalog schema');
   if (!catalog.profiles?.[catalog.defaultProfile]) errors.push('invalid default profile');
+
+  for (const [id, artifact] of Object.entries(catalog.artifacts ?? {})) {
+    if (!Array.isArray(artifact.hosts) || artifact.hosts.length === 0) {
+      errors.push(`artifact ${id} has invalid hosts`);
+    } else {
+      if (new Set(artifact.hosts).size !== artifact.hosts.length) errors.push(`artifact ${id} has duplicate hosts`);
+      for (const host of artifact.hosts) {
+        if (!HOSTS.has(host)) errors.push(`artifact ${id} has unknown host ${host}`);
+      }
+    }
+    if (!CAPABILITIES.has(artifact.capability)) {
+      errors.push(`artifact ${id} has unknown capability ${artifact.capability}`);
+    }
+  }
 
   for (const [name, ids] of Object.entries(catalog.profiles ?? {})) {
     if (!Array.isArray(ids)) {
@@ -34,9 +56,9 @@ export function loadCatalog() {
         errors.push(`profile ${name} references unknown artifact ${id}`);
         continue;
       }
-      const target = resolve(PACKAGE_ROOT, artifact.target);
-      if (!isContained(PACKAGE_ROOT, target)) errors.push(`artifact ${id} target escapes package root`);
-      if (artifact.source && !existsSync(resolve(PACKAGE_ROOT, artifact.source))) {
+      const target = resolve(packageRoot, artifact.target);
+      if (!isContained(packageRoot, target)) errors.push(`artifact ${id} target escapes package root`);
+      if (artifact.source && !existsSync(resolve(packageRoot, artifact.source))) {
         errors.push(`artifact ${id} source is missing`);
       }
     }
@@ -54,6 +76,25 @@ export function loadCatalog() {
       if (count !== 0 && count !== groupIds.length) errors.push(`${profile} splits atomic group ${groupName}`);
     }
   }
+  const allArtifactIds = Object.keys(catalog.artifacts ?? {});
+  const fullIds = new Set(catalog.profiles?.full ?? []);
+  if (allArtifactIds.some((id) => !fullIds.has(id)) || fullIds.size !== allArtifactIds.length) {
+    errors.push('full profile is not the artifact union');
+  }
+  const generatorCoreIds = allArtifactIds.filter(
+    (id) => catalog.artifacts[id].capability === 'generator-core',
+  );
+  const generatorSkillId = generatorCoreIds.find(
+    (id) => catalog.artifacts[id].target === GENERATOR_SKILL,
+  );
+  if (!generatorSkillId) errors.push(`generator core is missing ${GENERATOR_SKILL}`);
+  if (generatorSkillId && !(catalog.atomicGroups?.['generator-bootstrap'] ?? []).includes(generatorSkillId)) {
+    errors.push(`generator bootstrap is missing ${GENERATOR_SKILL}`);
+  }
+  if (generatorCoreIds.some((id) => !fullIds.has(id))) errors.push('full profile omits generator core');
+  if (generatorCoreIds.some((id) => (catalog.profiles?.standard ?? []).includes(id))) {
+    errors.push('standard profile includes generator core');
+  }
   const activeIds = new Set(Object.keys(catalog.artifacts ?? {}));
   const activeTargets = new Set(Object.values(catalog.artifacts ?? {}).map((artifact) => artifact.target));
   const retiredTargets = new Set();
@@ -63,13 +104,19 @@ export function loadCatalog() {
       errors.push(`retired artifact ${id} has invalid metadata`);
       continue;
     }
-    const target = resolve(PACKAGE_ROOT, artifact.target);
-    if (!isContained(PACKAGE_ROOT, target)) errors.push(`retired artifact ${id} target escapes package root`);
+    const target = resolve(packageRoot, artifact.target);
+    if (!isContained(packageRoot, target)) errors.push(`retired artifact ${id} target escapes package root`);
     if (activeTargets.has(artifact.target)) errors.push(`retired artifact ${id} target is still active`);
     if (retiredTargets.has(artifact.target)) errors.push(`retired artifact target ${artifact.target} is duplicated`);
     retiredTargets.add(artifact.target);
   }
   if (errors.length > 0) throw new Error(`Invalid adoption profile catalog: ${errors.join('; ')}`);
+  return catalog;
+}
+
+export function loadCatalog() {
+  const raw = readFileSync(CATALOG_PATH, 'utf8');
+  const catalog = validateCatalog(JSON.parse(raw));
   return { catalog, raw, hash: sha256(raw) };
 }
 

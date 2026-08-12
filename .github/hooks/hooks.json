@@ -1,17 +1,4 @@
 {
   "version": 1,
-  "hooks": {
-    "sessionStart": [
-      {
-        "type": "command",
-        "command": "node harness-scripts/harness.mjs session-start"
-      }
-    ],
-    "agentStop": [
-      {
-        "type": "command",
-        "command": "node harness-scripts/harness.mjs session-end"
-      }
-    ]
-  }
+  "hooks": {}
 }

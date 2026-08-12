@@ -13,6 +13,7 @@ const BOOLEAN_FLAGS = new Map([
   ['--json', 'json'],
   ['--dry-run', 'dryRun'],
   ['--yes', 'yes'],
+  ['--migrate-instructions', 'migrateInstructions'],
 ]);
 
 export class UsageError extends Error {}
@@ -37,6 +38,7 @@ export function parseArgs(argv, cwd = process.cwd()) {
     json: false,
     dryRun: false,
     yes: false,
+    migrateInstructions: false,
   };
 
   for (let index = 0; index < tokens.length; index += 1) {
@@ -63,6 +65,9 @@ export function parseArgs(argv, cwd = process.cwd()) {
   }
   if (options.yes && !['init', 'update'].includes(command)) {
     throw new UsageError(`--yes is not valid for ${command}`);
+  }
+  if (options.migrateInstructions && !['plan', 'init', 'update'].includes(command)) {
+    throw new UsageError(`--migrate-instructions is not valid for ${command}`);
   }
   if ((options.projectName || options.projectSlug) && !['plan', 'init'].includes(command)) {
     throw new UsageError(`Project options are not valid for ${command}`);
@@ -92,6 +97,7 @@ Options:
   --project-slug <slug>  Template project slug (plan/init only)
   --dry-run              Preview mutation without writing
   --yes                  Apply without prompting
+  --migrate-instructions Consent to migrate and remove .github/copilot-instructions.md
   --json                 Emit machine-readable output
   -h, --help             Show help
   -v, --version          Show package version`;

@@ -167,7 +167,7 @@ user opts in to overwrite. Schemas and per-file rules live in
 - Harness-maintenance workflow: [.github/skills/maintain-harness/SKILL.md](.github/skills/maintain-harness/SKILL.md).
 - Backpressure / self-healing workflow: [.github/skills/review-session/SKILL.md](.github/skills/review-session/SKILL.md).
 - Scaffold-into-a-repo workflow: [.github/skills/scaffold-harness/SKILL.md](.github/skills/scaffold-harness/SKILL.md).
-- Reusable generator prompt: [.github/prompts/build-harness.prompt.md](.github/prompts/build-harness.prompt.md).
+- Canonical build workflow: [.github/skills/build-harness/SKILL.md](.github/skills/build-harness/SKILL.md).
 - Scaffolder persona: [.github/agents/harness-builder.agent.md](.github/agents/harness-builder.agent.md).
 - Executable-layer contracts: [.github/instructions/executable-layer.instructions.md](.github/instructions/executable-layer.instructions.md).
 - Root tracking-file rules: [.github/instructions/tracking-files.instructions.md](.github/instructions/tracking-files.instructions.md).

@@ -183,7 +183,6 @@ function stageMirror(target) {
     copyDirectory(resolve(REPO_ROOT, directory), resolve(target, directory));
   }
   for (const file of [
-    '.github/prompts/build-harness.prompt.md',
     '.github/agents/harness-builder.agent.md',
     '.github/workflows/validate.yml',
     '.github/hooks/hooks.json',
@@ -215,10 +214,28 @@ function runMirrorValidator(root) {
   ], { cwd: root });
 }
 
+function mirrorCopySources() {
+  const workflow = readFileSync(
+    resolve(REPO_ROOT, '.github/workflows/sync-starter-kit.yml'),
+    'utf8',
+  );
+  return [...workflow.matchAll(/^\s*cp\s+((?:source\/\S+\s+)+)target\//gm)]
+    .flatMap((match) => match[1].trim().split(/\s+/))
+    .map((source) => source.slice('source/'.length));
+}
+
 if (process.argv.includes('--mirror-boundary')) {
   const result = mirrorPackageBoundary(REPO_ROOT);
   process.stdout.write(`MIRROR_PACKAGE_STATUS=${result.status}\n`);
 } else {
+
+test('starter-kit mirror copy sources exist', () => {
+  const sources = mirrorCopySources();
+  assert.ok(sources.length > 0, 'mirror workflow has no modeled copy sources');
+  for (const source of sources) {
+    assert.equal(existsSync(resolve(REPO_ROOT, source)), true, `mirror copy source is missing: ${source}`);
+  }
+});
 
 test('npm package closure includes catalog sources and executable metadata', () => {
   const result = runNpm(['pack', '--dry-run', '--json']);
@@ -297,32 +314,45 @@ test('exact packed tarball runs the installed CLI lifecycle', { timeout: 120_000
     assert.equal(versionResult.stderr, '');
 
     const planResult = runLinkedBin(consumer, [
-      'plan', '--target', target, '--profile', 'standard', '--json',
+      'plan', '--target', target, '--profile', 'full', '--json',
     ]);
     const plan = parseJsonOutput(planResult, 'installed plan');
     assert.equal(plan.command, 'plan');
-    assert.equal(plan.profile, 'standard');
+    assert.equal(plan.profile, 'full');
     assert.equal(plan.conflicts.length, 0);
     assert.ok(plan.changes.some((change) => change.path === 'harness-scripts/validate-harness.mjs'));
+    assert.ok(plan.changes.some((change) => change.path === '.github/skills/build-harness/SKILL.md'));
     assert.equal(existsSync(resolve(target, 'AGENTS.md')), false, 'plan mutated the target');
 
     const initResult = runLinkedBin(consumer, [
-      'init', '--target', target, '--profile', 'standard', '--yes', '--json',
+      'init', '--target', target, '--profile', 'full', '--yes', '--json',
     ]);
     const initialized = parseJsonOutput(initResult, 'installed init --yes');
     assert.equal(initialized.command, 'init');
-    assert.equal(initialized.profile, 'standard');
+    assert.equal(initialized.profile, 'full');
     assert.equal(initialized.applied, true);
     assert.equal(initialized.manifest, 'harness/installation.yml');
     assert.equal(existsSync(resolve(target, 'harness', 'installation.yml')), true);
     assert.equal(existsSync(resolve(target, 'harness-scripts', 'validate-harness.mjs')), true);
+    assert.equal(existsSync(resolve(target, '.github/skills/build-harness/SKILL.md')), true);
 
-    const validateResult = runLinkedBin(consumer, ['validate', '--target', target, '--json']);
-    const validation = parseJsonOutput(validateResult, 'installed validate');
-    assert.equal(validation.command, 'validate');
-    assert.equal(validation.code, 0);
-    assert.equal(validation.stdout, '');
-    assert.equal(validation.stderr, '');
+    const idempotentUpdate = runLinkedBin(consumer, [
+      'update', '--target', target, '--profile', 'full', '--yes', '--json',
+    ]);
+    assert.equal(parseJsonOutput(idempotentUpdate, 'installed idempotent update').applied, true);
+
+    writeFileSync(resolve(target, '.github/skills/build-harness/SKILL.md'), 'local edit\n');
+    const conflictResult = runLinkedBin(consumer, [
+      'update', '--target', target, '--profile', 'full', '--yes', '--json',
+    ]);
+    assert.equal(conflictResult.status, 1);
+    const conflict = JSON.parse(conflictResult.stdout);
+    assert.match(conflict.conflicts.map((item) => item.reason).join('\n'), /locally modified/);
+    assert.equal(readFileSync(resolve(target, '.github/skills/build-harness/SKILL.md'), 'utf8'), 'local edit\n');
+
+    const statusResult = runLinkedBin(consumer, ['status', '--target', target, '--json']);
+    assert.equal(statusResult.status, 1);
+    assert.match(statusResult.stdout, /locally modified/);
   } finally {
     rmSync(temporaryRoot, { recursive: true, force: true });
   }
@@ -360,7 +390,17 @@ test('local Git package infers the executable and forwards full-profile argument
     assert.equal(plan.profile, 'full');
     assert.equal(plan.conflicts.length, 0);
     assert.ok(plan.changes.some((change) => change.path === '.github/workflows/validate.yml'));
+    assert.ok(plan.changes.some((change) => change.path === '.github/skills/build-harness/SKILL.md'));
     assert.equal(existsSync(resolve(target, 'AGENTS.md')), false, 'plan mutated the target');
+
+    const initResult = runNpx([
+      '--yes', packageSpec, 'init', '--target', target, '--profile', 'full', '--yes', '--json',
+    ], { cwd: temporaryRoot });
+    const initialized = parseJsonOutput(initResult, 'local Git package full init');
+    assert.equal(initialized.profile, 'full');
+    assert.equal(initialized.applied, true);
+    assert.equal(existsSync(resolve(target, '.github/skills/build-harness/SKILL.md')), true);
+    assert.equal(existsSync(resolve(target, '.github/agents/harness-builder.agent.md')), true);
   } finally {
     rmSync(temporaryRoot, { recursive: true, force: true });
   }
@@ -386,6 +426,12 @@ test('mirror workflow covers package triggers, copy, boundary gate, and credenti
   assert.ok(boundaryIndex > workflow.indexOf('Seed tracking files'));
   assert.ok(boundaryIndex < validatorIndex);
   assert.ok(validatorIndex < commitIndex);
+});
+
+test('mirror workflow retains no retired prompt-adapter references', () => {
+  const workflow = readFileSync(resolve(REPO_ROOT, '.github/workflows/sync-starter-kit.yml'), 'utf8');
+  assert.doesNotMatch(workflow, /\.github\/prompts/, 'workflow metadata or sync command still references .github/prompts');
+  assert.doesNotMatch(workflow, /\.prompt\.md/, 'workflow trigger still watches a retired prompt file');
 });
 
 test('mirror workflow smoke uses the resulting target SHA for read-only all-profile plans', () => {

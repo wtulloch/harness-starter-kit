@@ -6,10 +6,15 @@ your own repository. For what a harness is and how the pieces compose, see
 
 ## Prerequisites
 
-- VS Code with an agent that reads `.github/` customization files and `AGENTS.md`.
-- Node.js `>=18`, including npm/npx, and Git on `PATH` for direct package execution.
-   The installed `standard` and `full` profiles use dependency-free Node scripts;
-   a manually copied `doc-only` profile needs no runtime.
+- Choose a supported host: VS Code Chat with Agent Skills enabled, or an
+   authenticated and licensed GitHub Copilot CLI build with Agent Skills enabled.
+- Node.js `>=18` is the harness runtime requirement for the installer and the
+   dependency-free scripts in `standard` and `full`; a manually copied
+   `doc-only` profile needs no harness runtime.
+- Copilot CLI installation requirements are separate from the harness Node
+   requirement. Install and authenticate the pinned CLI build by its official
+   release instructions; do not infer its supported runtime from Node.js `>=18`.
+- npm/npx and Git on `PATH` are required for direct GitHub package execution.
 - Git access to `wtulloch/harness-starter-kit`. Public access needs no credentials.
    Private access uses the credentials Git already recognizes, such as an HTTPS
    credential helper, a personal access token, or an SSH key. npm registry login
@@ -64,10 +69,20 @@ npx --yes "github:wtulloch/harness-starter-kit#<TARGET-40-CHARACTER-COMMIT-SHA-A
 Updates replace unchanged harness-managed scripts, refresh only the sentinel-owned
 block in `AGENTS.md`, preserve seeded tracking files, and restore missing owned
 shared-file lines. Cumulative upgrades are supported; profile downgrades and
-force-overwrites are refused. Brownfield initialization migrates legacy Copilot
-instructions verbatim before deleting the old file and runs baseline validation.
-The `doc-only` profile validates installer ownership but intentionally skips the
-unavailable executable validator and doctor.
+force-overwrites are refused. Brownfield instruction migration requires explicit
+migration consent. Without that consent, the installer preserves both instruction
+sources byte-for-byte and performs no `AGENTS.md` reconciliation write. With
+consent, it migrates legacy Copilot instructions verbatim before deleting the old
+file and runs baseline validation. The `doc-only` profile validates installer
+ownership but intentionally skips the unavailable executable validator and doctor.
+
+Use the dedicated interface in both the plan and mutation when you explicitly
+approve that migration:
+
+```bash
+npx --yes "github:wtulloch/harness-starter-kit#<TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE>" plan --target . --profile standard --migrate-instructions
+npx --yes "github:wtulloch/harness-starter-kit#<TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE>" init --target . --profile standard --migrate-instructions --yes
+```
 
 The installer owns only catalog-defined artifacts. The generator remains
 responsible for interviewing you and creating project-specific instructions,
@@ -107,9 +122,16 @@ trailing `--yes` only when you are ready to write.
    npx --yes "github:wtulloch/harness-starter-kit#<TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE>" init --target . --profile full --yes
    ```
 
-2. Open or reload the target workspace in VS Code so customization discovery
-   sees the installed prompt and agent.
-3. Run the generator prompt:
+2. Open or reload the target in a supported host so Agent Skill discovery sees
+   `.github/skills/build-harness/SKILL.md`.
+3. Run the canonical skill through one host route:
+
+   * VS Code Chat: invoke `/build-harness` directly. Treat prompt files and named
+     agent selection as optional VS Code-specific refinements, not alternate
+     workflow owners.
+   * GitHub Copilot CLI: inspect `/env`, verify discovery with
+     `/skills info build-harness`, then invoke `/build-harness`. The CLI does not
+     discover `.github/prompts` as commands.
 
    ```text
    /build-harness project-slug=my-service profile=full overwrite=false
@@ -128,6 +150,24 @@ trailing `--yes` only when you are ready to write.
 The flow is **resumable and idempotent**: re-running tops up genuinely missing
 files without reverting your edits, unless you pass `overwrite=true`.
 
+## Pinned host acceptance
+
+Release acceptance runs against two separate disposable `full` targets installed
+from the same immutable package SHA. VS Code Chat must expose one unambiguous
+`/build-harness` route to the Agent Skill. Copilot CLI must record `/env`, resolve
+`/skills info build-harness`, and invoke `/build-harness`. The optional
+`harness-builder` agent is recorded separately and is not required for either
+workflow.
+
+Both hosts must stop at confirmation-before-write with Git status and the HEAD
+tree unchanged from the post-install baseline. Acceptance also records raw hook
+payload bytes for VS Code `SessionStart`/`Stop` and Copilot CLI
+`sessionStart`/`agentStop`/`sessionEnd`. Missing binaries, authentication,
+licenses, or feature flags are explicit skips with observed reasons; discovery
+ambiguity, early mutation, wrong package identity, and malformed payloads fail.
+Use the detailed matrix in
+[tests/scaffold-new-project.test.md](tests/scaffold-new-project.test.md).
+
 ## Adoption profiles
 
 The canonical fixed-artifact membership lives in
@@ -139,7 +179,7 @@ The generator reads that catalog directly:
    and guard manifests.
 - `full` adds the validation workflow, inert local pre-commit hook, GitHub
    Copilot agent-hooks configuration, and the complete `/build-harness`
-   bootstrap: prompt, bound agent, instructions, skills and references,
+   bootstrap: canonical skill, optional agent, instructions and references,
    starter-owned references, and templates. The generator creates project-owned
    `knowledge-base/` content after its interview and confirmation gate.
 
@@ -208,23 +248,20 @@ To enable the emitted pre-commit gate, opt in with
 
 ### GitHub Copilot agent-hooks config
 
-`.github/hooks/hooks.json` wires GitHub Copilot's agent-hooks feature
-(`sessionStart` → `session-start.mjs`, `agentStop` → `session-end.mjs`) so the
-read-only banner/checklist scripts run automatically at session boundaries
-instead of relying on the agent remembering to invoke them. It is part of the
-`full` profile:
+`.github/hooks/hooks.json` is an inert shared hook manifest with an empty `hooks`
+object. It is part of the `full` profile, but it wires no event automatically:
 
 | Emit to | Copy from (live source) |
 |---------|-------------------------|
 | `.github/hooks/hooks.json` | `.github/hooks/hooks.json` |
 
-**Honest limitation**: the scripts print plain-text banners, not the single-line
-JSON (`{"additionalContext": "..."}`) the hook runtime requires to inject output
-back into the agent's context — so this automates the *trigger* (the scripts run
-without the agent remembering to), not automatic context injection, and it never
-replaces the agent actually reading `PROGRESS.md` per the committed session
-protocols. Detecting which backpressure is worth capturing remains agent/human
-judgment (see decisions-log D-15) — the hook cannot make that call for you.
+Run `session-start` and `session-end` as manual scripts. Do not wire adapters
+until pinned acceptance captures exact hook payload bytes and output envelopes.
+The documented host events are VS Code `SessionStart` and `Stop`, and Copilot CLI
+`sessionStart`, `agentStop`, and true session termination `sessionEnd`. These
+events do not have interchangeable lifecycle meaning. A future adapter must be
+event-aware; the current plain-text scripts do not inject context into either
+host.
 
 ## Brownfield adoption (a repo that already has files)
 
@@ -237,14 +274,15 @@ makes the first validate run advisory so pre-existing noise cannot block you. Th
 ### 1. Detect — the four-state policy matrix
 
 Phase 0 inventory classifies the always-on layer into one of four states and picks
-a reconciliation action:
+a reconciliation action. Rows that migrate or delete
+`.github/copilot-instructions.md` require explicit migration consent:
 
 | Pre-existing files | Action |
 |--------------------|--------|
 | Neither `AGENTS.md` nor `.github/copilot-instructions.md` | Emit `AGENTS.md` fresh from the template (greenfield within a brownfield tree) |
 | `AGENTS.md` only | Inject the harness **managed block**; leave project-owned sections untouched |
-| `.github/copilot-instructions.md` only | Migrate its content into a new `AGENTS.md`, add the managed block, then delete `copilot-instructions.md` |
-| Both | Inject the managed block into `AGENTS.md`, migrate `copilot-instructions.md` content into it, then delete `copilot-instructions.md` |
+| `.github/copilot-instructions.md` only | With consent, migrate its content into a new `AGENTS.md`, add the managed block, then delete `copilot-instructions.md`; otherwise preserve it unchanged |
+| Both | With consent, inject the managed block into `AGENTS.md`, migrate `copilot-instructions.md` content into it, then delete `copilot-instructions.md`; otherwise preserve both unchanged |
 
 ### 2. Reconcile `AGENTS.md` — managed-block injection
 
@@ -265,7 +303,8 @@ end of the file; when present it is updated in place. Validator Check 17
 sentinels, so `local == CI` proves the merge actually landed — Check 5 only proves
 the file exists.
 
-**Migrate-and-delete** is the one intentional, announced removal: any
+**Migrate-and-delete** is the one intentional, announced removal after explicit
+migration consent: any
 `.github/copilot-instructions.md` content is migrated into the `AGENTS.md` project
 sections *first*, the removal is announced, and only then is the file deleted —
 there is no silent data loss. This keeps the single-always-on rule satisfied and

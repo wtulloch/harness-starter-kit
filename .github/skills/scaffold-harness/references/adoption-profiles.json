@@ -70,7 +70,7 @@
       "guards-manifest"
     ],
     "generator-bootstrap": [
-      "build-harness-prompt",
+      "build-harness-skill",
       "harness-builder-agent",
       "customization-authoring-instructions",
       "executable-layer-instructions",
@@ -98,26 +98,36 @@
   },
   "artifacts": {
     "agents-brief": {
+      "capability": "harness-core",
+      "hosts": ["shared"],
       "source": ".github/skills/scaffold-harness/assets/templates/AGENTS.md.template",
       "target": "AGENTS.md",
       "operation": "reconcile-template"
     },
     "progress-tracker": {
+      "capability": "harness-core",
+      "hosts": ["shared"],
       "source": ".github/skills/scaffold-harness/assets/templates/PROGRESS.md.template",
       "target": "PROGRESS.md",
       "operation": "template"
     },
     "feature-ledger": {
+      "capability": "harness-core",
+      "hosts": ["shared"],
       "source": ".github/skills/scaffold-harness/assets/templates/features.yml.template",
       "target": "features.yml",
       "operation": "template"
     },
     "incident-log": {
+      "capability": "harness-core",
+      "hosts": ["shared"],
       "source": ".github/skills/scaffold-harness/assets/templates/incidents.jsonl.template",
       "target": "harness/incidents.jsonl",
       "operation": "template"
     },
     "gitignore-lines": {
+      "capability": "harness-core",
+      "hosts": ["shared"],
       "target": ".gitignore",
       "operation": "append-lines",
       "lines": [
@@ -128,6 +138,8 @@
       ]
     },
     "gitattributes-lines": {
+      "capability": "harness-core",
+      "hosts": ["shared"],
       "target": ".gitattributes",
       "operation": "append-lines",
       "lines": [
@@ -135,191 +147,267 @@
       ]
     },
     "signature-script": {
+      "capability": "executable-layer",
+      "hosts": ["shared"],
       "source": "harness-scripts/signature.mjs",
       "target": "harness-scripts/signature.mjs",
       "operation": "copy"
     },
     "validator-script": {
+      "capability": "executable-layer",
+      "hosts": ["shared"],
       "source": "harness-scripts/validate-harness.mjs",
       "target": "harness-scripts/validate-harness.mjs",
       "operation": "copy"
     },
     "heal-script": {
+      "capability": "executable-layer",
+      "hosts": ["shared"],
       "source": "harness-scripts/heal-harness.mjs",
       "target": "harness-scripts/heal-harness.mjs",
       "operation": "copy"
     },
     "session-start-script": {
+      "capability": "executable-layer",
+      "hosts": ["shared"],
       "source": "harness-scripts/session-start.mjs",
       "target": "harness-scripts/session-start.mjs",
       "operation": "copy"
     },
     "session-end-script": {
+      "capability": "executable-layer",
+      "hosts": ["shared"],
       "source": "harness-scripts/session-end.mjs",
       "target": "harness-scripts/session-end.mjs",
       "operation": "copy"
     },
     "backpressure-stats-script": {
+      "capability": "executable-layer",
+      "hosts": ["shared"],
       "source": "harness-scripts/backpressure-stats.mjs",
       "target": "harness-scripts/backpressure-stats.mjs",
       "operation": "copy"
     },
     "guard-script": {
+      "capability": "executable-layer",
+      "hosts": ["shared"],
       "source": "harness-scripts/guard.mjs",
       "target": "harness-scripts/guard.mjs",
       "operation": "copy"
     },
     "dispatcher-script": {
+      "capability": "executable-layer",
+      "hosts": ["shared"],
       "source": "harness-scripts/harness.mjs",
       "target": "harness-scripts/harness.mjs",
       "operation": "copy"
     },
     "doctor-script": {
+      "capability": "executable-layer",
+      "hosts": ["shared"],
       "source": "harness-scripts/doctor.mjs",
       "target": "harness-scripts/doctor.mjs",
       "operation": "copy"
     },
     "doctor-manifest": {
+      "capability": "executable-layer",
+      "hosts": ["shared"],
       "source": ".github/skills/scaffold-harness/assets/templates/doctor.yml.template",
       "target": "harness/doctor.yml",
       "operation": "template"
     },
     "guards-manifest": {
+      "capability": "executable-layer",
+      "hosts": ["shared"],
       "source": ".github/skills/scaffold-harness/assets/templates/guards.yml.template",
       "target": "harness/guards.yml",
       "operation": "template"
     },
     "validation-workflow": {
+      "capability": "executable-layer",
+      "hosts": ["shared"],
       "source": ".github/workflows/validate.yml",
       "target": ".github/workflows/validate.yml",
       "operation": "copy"
     },
     "pre-commit-hook": {
+      "capability": "executable-layer",
+      "hosts": ["shared"],
       "source": ".githooks/pre-commit",
       "target": ".githooks/pre-commit",
       "operation": "copy"
     },
     "agent-hooks-config": {
+      "capability": "hook-adapter",
+      "hosts": ["vscode", "copilot-cli"],
       "source": ".github/hooks/hooks.json",
       "target": ".github/hooks/hooks.json",
       "operation": "copy"
     },
-    "build-harness-prompt": {
-      "source": ".github/prompts/build-harness.prompt.md",
-      "target": ".github/prompts/build-harness.prompt.md",
+    "build-harness-skill": {
+      "capability": "generator-core",
+      "hosts": ["vscode", "copilot-cli"],
+      "source": ".github/skills/build-harness/SKILL.md",
+      "target": ".github/skills/build-harness/SKILL.md",
       "operation": "copy"
     },
     "harness-builder-agent": {
+      "capability": "generator-core",
+      "hosts": ["vscode", "copilot-cli"],
       "source": ".github/agents/harness-builder.agent.md",
       "target": ".github/agents/harness-builder.agent.md",
       "operation": "copy"
     },
     "customization-authoring-instructions": {
+      "capability": "generator-core",
+      "hosts": ["shared"],
       "source": ".github/instructions/customization-authoring.instructions.md",
       "target": ".github/instructions/customization-authoring.instructions.md",
       "operation": "copy"
     },
     "executable-layer-instructions": {
+      "capability": "generator-core",
+      "hosts": ["shared"],
       "source": ".github/instructions/executable-layer.instructions.md",
       "target": ".github/instructions/executable-layer.instructions.md",
       "operation": "copy"
     },
     "harness-conventions-instructions": {
+      "capability": "generator-core",
+      "hosts": ["shared"],
       "source": ".github/instructions/harness-conventions.instructions.md",
       "target": ".github/instructions/harness-conventions.instructions.md",
       "operation": "copy"
     },
     "tracking-files-instructions": {
+      "capability": "generator-core",
+      "hosts": ["shared"],
       "source": ".github/instructions/tracking-files.instructions.md",
       "target": ".github/instructions/tracking-files.instructions.md",
       "operation": "copy"
     },
     "maintain-harness-skill": {
+      "capability": "generator-core",
+      "hosts": ["vscode", "copilot-cli"],
       "source": ".github/skills/maintain-harness/SKILL.md",
       "target": ".github/skills/maintain-harness/SKILL.md",
       "operation": "copy"
     },
     "review-session-skill": {
+      "capability": "generator-core",
+      "hosts": ["vscode", "copilot-cli"],
       "source": ".github/skills/review-session/SKILL.md",
       "target": ".github/skills/review-session/SKILL.md",
       "operation": "copy"
     },
     "writing-validator-check-reference": {
+      "capability": "generator-core",
+      "hosts": ["shared"],
       "source": ".github/skills/review-session/references/writing-a-validator-check.md",
       "target": ".github/skills/review-session/references/writing-a-validator-check.md",
       "operation": "copy"
     },
     "scaffold-harness-skill": {
+      "capability": "generator-core",
+      "hosts": ["vscode", "copilot-cli"],
       "source": ".github/skills/scaffold-harness/SKILL.md",
       "target": ".github/skills/scaffold-harness/SKILL.md",
       "operation": "copy"
     },
     "adoption-profiles-reference": {
+      "capability": "generator-core",
+      "hosts": ["shared"],
       "source": ".github/skills/scaffold-harness/references/adoption-profiles.json",
       "target": ".github/skills/scaffold-harness/references/adoption-profiles.json",
       "operation": "copy"
     },
     "toolchain-detection-reference": {
+      "capability": "generator-core",
+      "hosts": ["shared"],
       "source": ".github/skills/scaffold-harness/references/toolchain-detection.md",
       "target": ".github/skills/scaffold-harness/references/toolchain-detection.md",
       "operation": "copy"
     },
     "starter-harness-architecture-reference": {
+      "capability": "generator-core",
+      "hosts": ["shared"],
       "source": ".github/skills/scaffold-harness/references/starter-harness/architecture.md",
       "target": ".github/skills/scaffold-harness/references/starter-harness/architecture.md",
       "operation": "copy"
     },
     "starter-harness-conventions-reference": {
+      "capability": "generator-core",
+      "hosts": ["shared"],
       "source": ".github/skills/scaffold-harness/references/starter-harness/conventions.md",
       "target": ".github/skills/scaffold-harness/references/starter-harness/conventions.md",
       "operation": "copy"
     },
     "starter-harness-glossary-reference": {
+      "capability": "generator-core",
+      "hosts": ["shared"],
       "source": ".github/skills/scaffold-harness/references/starter-harness/glossary.md",
       "target": ".github/skills/scaffold-harness/references/starter-harness/glossary.md",
       "operation": "copy"
     },
     "starter-harness-index-reference": {
+      "capability": "generator-core",
+      "hosts": ["shared"],
       "source": ".github/skills/scaffold-harness/references/starter-harness/index.md",
       "target": ".github/skills/scaffold-harness/references/starter-harness/index.md",
       "operation": "copy"
     },
     "scaffold-agents-brief-template": {
+      "capability": "generator-core",
+      "hosts": ["shared"],
       "source": ".github/skills/scaffold-harness/assets/templates/AGENTS.md.template",
       "target": ".github/skills/scaffold-harness/assets/templates/AGENTS.md.template",
       "operation": "copy"
     },
     "scaffold-checkpoint-template": {
+      "capability": "generator-core",
+      "hosts": ["shared"],
       "source": ".github/skills/scaffold-harness/assets/templates/checkpoint.md.template",
       "target": ".github/skills/scaffold-harness/assets/templates/checkpoint.md.template",
       "operation": "copy"
     },
     "scaffold-doctor-template": {
+      "capability": "generator-core",
+      "hosts": ["shared"],
       "source": ".github/skills/scaffold-harness/assets/templates/doctor.yml.template",
       "target": ".github/skills/scaffold-harness/assets/templates/doctor.yml.template",
       "operation": "copy"
     },
     "scaffold-features-template": {
+      "capability": "generator-core",
+      "hosts": ["shared"],
       "source": ".github/skills/scaffold-harness/assets/templates/features.yml.template",
       "target": ".github/skills/scaffold-harness/assets/templates/features.yml.template",
       "operation": "copy"
     },
     "scaffold-guards-template": {
+      "capability": "generator-core",
+      "hosts": ["shared"],
       "source": ".github/skills/scaffold-harness/assets/templates/guards.yml.template",
       "target": ".github/skills/scaffold-harness/assets/templates/guards.yml.template",
       "operation": "copy"
     },
     "scaffold-incidents-template": {
+      "capability": "generator-core",
+      "hosts": ["shared"],
       "source": ".github/skills/scaffold-harness/assets/templates/incidents.jsonl.template",
       "target": ".github/skills/scaffold-harness/assets/templates/incidents.jsonl.template",
       "operation": "copy"
     },
     "scaffold-progress-template": {
+      "capability": "generator-core",
+      "hosts": ["shared"],
       "source": ".github/skills/scaffold-harness/assets/templates/PROGRESS.md.template",
       "target": ".github/skills/scaffold-harness/assets/templates/PROGRESS.md.template",
       "operation": "copy"
     },
     "scaffold-state-template": {
+      "capability": "generator-core",
+      "hosts": ["shared"],
       "source": ".github/skills/scaffold-harness/assets/templates/state.md.template",
       "target": ".github/skills/scaffold-harness/assets/templates/state.md.template",
       "operation": "copy"
@@ -374,7 +462,7 @@
       "validation-workflow",
       "pre-commit-hook",
       "agent-hooks-config",
-      "build-harness-prompt",
+      "build-harness-skill",
       "harness-builder-agent",
       "customization-authoring-instructions",
       "executable-layer-instructions",
