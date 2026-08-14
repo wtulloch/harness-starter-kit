@@ -22,6 +22,7 @@
     "harness-scripts/"
   ],
   "scripts": {
+    "lint": "node tools/lint-harness-scripts.mjs",
     "test": "node --test",
     "test:installer": "node --test tests/installer.test.mjs",
     "pack:check": "npm pack --dry-run --json"
