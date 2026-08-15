@@ -12,6 +12,7 @@ import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { PROMOTE_THRESHOLD, groupIncidents } from './signature.mjs';
+import { emitMode, render } from './banner.mjs';
 
 /**
  * Locate the repo root by walking upward from `startDir` looking for a `.git`
@@ -165,4 +166,4 @@ if (incidentsRaw === null) {
 }
 
 line('=============================');
-process.stdout.write(out.join('\n') + '\n');
+process.stdout.write(render(out, emitMode()));

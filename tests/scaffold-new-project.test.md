@@ -315,6 +315,7 @@ Run this stage once with each profile: `doc-only`, default `standard`, and `full
 | Path | Assertion |
 |------|-----------|
 | `harness-scripts/signature.mjs` | Emitted; an unconditional `import` of session-start, session-end, and backpressure-stats — if it is missing those three exit non-zero with `ERR_MODULE_NOT_FOUND` |
+| `harness-scripts/banner.mjs` | Emitted; the output-mode adapter imported by session-start and session-end — if it is missing both exit non-zero with `ERR_MODULE_NOT_FOUND` |
 | `harness-scripts/validate-harness.mjs` | Emitted (by default) |
 | `harness-scripts/heal-harness.mjs` | Emitted; `node harness-scripts/harness.mjs heal` exits 0 on a healthy tree, exits 2 with repair directives on a fault |
 | `harness-scripts/session-start.mjs` | Emitted |
@@ -335,7 +336,7 @@ Run this stage once with each profile: `doc-only`, default `standard`, and `full
 PowerShell:
 
 ```powershell
-Test-Path harness-scripts\signature.mjs, harness-scripts\validate-harness.mjs, harness-scripts\heal-harness.mjs, harness-scripts\session-start.mjs, harness-scripts\session-end.mjs, harness-scripts\backpressure-stats.mjs, harness-scripts\guard.mjs, harness-scripts\harness.mjs, .github\workflows\validate.yml, .githooks\pre-commit
+Test-Path harness-scripts\signature.mjs, harness-scripts\banner.mjs, harness-scripts\validate-harness.mjs, harness-scripts\heal-harness.mjs, harness-scripts\session-start.mjs, harness-scripts\session-end.mjs, harness-scripts\backpressure-stats.mjs, harness-scripts\guard.mjs, harness-scripts\harness.mjs, .github\workflows\validate.yml, .githooks\pre-commit
 git config --get core.hooksPath   # must print nothing; scaffold does not activate the hook
 Select-String -Path harness\state\demo-service\state.md -Pattern 'executable|emit' -Quiet
 ```
@@ -344,6 +345,7 @@ Bash:
 
 ```bash
 test -f harness-scripts/signature.mjs && test -f harness-scripts/validate-harness.mjs && \
+   test -f harness-scripts/banner.mjs && \
    test -f harness-scripts/heal-harness.mjs && \
    test -f harness-scripts/session-start.mjs && test -f harness-scripts/session-end.mjs && \
    test -f harness-scripts/backpressure-stats.mjs && test -f harness-scripts/guard.mjs && \

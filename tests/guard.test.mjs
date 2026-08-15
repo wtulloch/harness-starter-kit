@@ -399,7 +399,7 @@ test('nothing in the guard layer writes to the committed incident ledger', () =>
 
 // --- session-end trigger. -----------------------------------------------------
 
-const SESSION_END_SCRIPTS = ['session-end.mjs', 'guard.mjs', 'signature.mjs'];
+const SESSION_END_SCRIPTS = ['session-end.mjs', 'guard.mjs', 'signature.mjs', 'banner.mjs'];
 
 /** A fixture that can run session-end.mjs against its own root (findRepoRoot anchors on AGENTS.md). */
 function sessionEndFixture(manifest = MANIFEST) {

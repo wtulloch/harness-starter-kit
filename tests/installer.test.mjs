@@ -140,7 +140,7 @@ test('plan resolves the catalog default without writing', () => {
     const plan = createPlan({ command: 'plan', target });
     assert.equal(plan.profile, 'standard');
     assert.equal(plan.conflicts.length, 0);
-    assert.equal(plan.operations.filter((operation) => operation.type === 'write').length, 17);
+    assert.equal(plan.operations.filter((operation) => operation.type === 'write').length, 18);
     assert.deepEqual(readdirSync(target), []);
   } finally { cleanup(); }
 });
@@ -247,7 +247,7 @@ test('init applies standard profile, validates it, and records clean ownership',
     const installation = JSON.parse(readFileSync(join(target, 'harness', 'installation.yml'), 'utf8'));
     assert.equal(installation.installer.name, 'starter-harness');
     assert.equal(installation.profile, 'standard');
-    assert.equal(installation.artifacts.length, 17);
+    assert.equal(installation.artifacts.length, 18);
     assert.equal(inspectInstallation({ target }).clean, true);
   } finally { cleanup(); }
 });

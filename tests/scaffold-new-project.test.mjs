@@ -284,6 +284,7 @@ try {
     'harness-scripts/heal-harness.mjs',
     'harness-scripts/backpressure-stats.mjs',
     'harness-scripts/signature.mjs',
+    'harness-scripts/banner.mjs',
     'harness-scripts/guard.mjs',
     'harness-scripts/harness.mjs',
     '.github/workflows/validate.yml', '.githooks/pre-commit',
@@ -1188,7 +1189,7 @@ try {
   // Relocate the executable layer two levels deeper: target4/tools/harness-scripts/.
   const nestedDir = join(target4, 'tools', 'harness-scripts');
   mkdirSync(nestedDir, { recursive: true });
-  for (const name of ['signature.mjs', 'validate-harness.mjs', 'session-start.mjs', 'harness.mjs']) {
+  for (const name of ['signature.mjs', 'validate-harness.mjs', 'session-start.mjs', 'harness.mjs', 'banner.mjs']) {
     copyFileSync(join(target4, 'harness-scripts', name), join(nestedDir, name));
   }
 

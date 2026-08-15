@@ -58,6 +58,7 @@
   "atomicGroups": {
     "executable-layer": [
       "signature-script",
+      "banner-script",
       "validator-script",
       "heal-script",
       "session-start-script",
@@ -151,6 +152,13 @@
       "hosts": ["shared"],
       "source": "harness-scripts/signature.mjs",
       "target": "harness-scripts/signature.mjs",
+      "operation": "copy"
+    },
+    "banner-script": {
+      "capability": "executable-layer",
+      "hosts": ["shared"],
+      "source": "harness-scripts/banner.mjs",
+      "target": "harness-scripts/banner.mjs",
       "operation": "copy"
     },
     "validator-script": {
@@ -430,6 +438,7 @@
       "gitignore-lines",
       "gitattributes-lines",
       "signature-script",
+      "banner-script",
       "validator-script",
       "heal-script",
       "session-start-script",
@@ -449,6 +458,7 @@
       "gitignore-lines",
       "gitattributes-lines",
       "signature-script",
+      "banner-script",
       "validator-script",
       "heal-script",
       "session-start-script",

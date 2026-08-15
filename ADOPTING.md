@@ -215,6 +215,7 @@ live source. Use the profile catalog for the authoritative path list.
 | Emit to | Copy from (live source) |
 |---------|-------------------------|
 | `harness-scripts/signature.mjs` | `harness-scripts/signature.mjs` |
+| `harness-scripts/banner.mjs` | `harness-scripts/banner.mjs` |
 | `harness-scripts/validate-harness.mjs` | `harness-scripts/validate-harness.mjs` |
 | `harness-scripts/heal-harness.mjs` | `harness-scripts/heal-harness.mjs` |
 | `harness-scripts/session-start.mjs` | `harness-scripts/session-start.mjs` |
@@ -225,9 +226,10 @@ live source. Use the profile catalog for the authoritative path list.
 | `harness-scripts/doctor.mjs` | `harness-scripts/doctor.mjs` |
 
 Copy the whole table or none of it. `signature.mjs` is an unconditional `import`
-of `session-start`, `session-end`, and `backpressure-stats`, and `harness.mjs`
-dispatches a verb to every other script — so a partial copy gives you a target
-that crashes on invocation rather than one that fails open.
+of `session-start`, `session-end`, and `backpressure-stats`; `banner.mjs` is
+imported by `session-start` and `session-end`; and `harness.mjs` dispatches a verb
+to every other script — so a partial copy gives you a target that crashes on
+invocation rather than one that fails open.
 
 `harness-scripts/harness.mjs` is a command-verb dispatcher — `node harness-scripts/harness.mjs
 validate` is an alias for `node harness-scripts/validate-harness.mjs` (raw calls stay the
@@ -259,9 +261,29 @@ Run `session-start` and `session-end` as manual scripts. Do not wire adapters
 until pinned acceptance captures exact hook payload bytes and output envelopes.
 The documented host events are VS Code `SessionStart` and `Stop`, and Copilot CLI
 `sessionStart`, `agentStop`, and true session termination `sessionEnd`. These
-events do not have interchangeable lifecycle meaning. A future adapter must be
-event-aware; the current plain-text scripts do not inject context into either
-host.
+events do not have interchangeable lifecycle meaning.
+
+The session scripts accept an opt-in `--emit=additional-context` flag that
+collapses the banner into the single-line `{"additionalContext":"..."}` envelope a
+`sessionStart` hook can inject as model-facing context (plain text falls through
+as "no output"). The default output is unchanged, and the flag is inert until you
+wire the hook yourself — for example:
+
+```json
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      { "type": "command",
+        "command": "node harness-scripts/session-start.mjs --emit=additional-context" }
+    ]
+  }
+}
+```
+
+Do not activate this wiring until pinned acceptance captures the exact injected
+bytes and the host context ceiling; the shipped `hooks.json` stays inert until
+then.
 
 ## Brownfield adoption (a repo that already has files)
 
