@@ -203,7 +203,8 @@ package. Manual template copying remains available for constrained environments:
 | `harness/guards.yml` | `.github/skills/scaffold-harness/assets/templates/guards.yml.template` | Default-emitted; declares the loop guards `guard.mjs` evaluates — without it the "re-run heal at most 3 times" rule in `AGENTS.md` has nothing enforcing it |
 
 Strip each template's leading `{{! ... }}` generator-header lines on emit (they are
-not valid content). Add a `.gitignore` (ignoring `.copilot-tracking/`) and a
+not valid content). Add a `.gitignore` (ignoring `.harness-local/` and optional
+project-owned `.copilot-tracking/` scratch) and a
 `.gitattributes` with `* text=auto eol=lf` so committed files normalize to LF.
 
 ### Standard and full executable layer
@@ -348,7 +349,7 @@ check.
 These line-oriented files are **create-then-append-if-line-missing**: when absent
 they are created with the harness lines; when present only the missing lines are
 appended and your existing entries are preserved. Adoption always lands
-`.copilot-tracking/`, `.env`, `.env.*`, and `!.env.example` in `.gitignore`, and
+`.harness-local/`, `.copilot-tracking/`, `.env`, `.env.*`, and `!.env.example` in `.gitignore`, and
 `* text=auto eol=lf` in `.gitattributes`.
 
 ### 5. Baseline-validate — advisory first run

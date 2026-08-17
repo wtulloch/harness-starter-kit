@@ -29,7 +29,7 @@ Key directories:
 - `.github/skills/scaffold-harness/assets/templates/` — source templates the
   scaffold skill emits into target repos.
 - `harness/state/`        — committed per-initiative `state.md` (durable tracking).
-- `.copilot-tracking/`    — ephemeral RPI scratch (research/plans/changes); **gitignored**.
+- `.harness-local/`       — ignored, non-authoritative executable runtime state.
 
 ## Setup commands
 
@@ -81,10 +81,8 @@ deterministic gate:
 - ALWAYS keep `.github/**` customization files valid: YAML frontmatter between
   `---` markers, quoted `description` values containing colons, and skill folder
   names matching the `name` field.
-- ALWAYS cite files under `.copilot-tracking/` as **plain-text workspace-relative
-  paths** — never markdown links, never `#file:` (that tree is gitignored, so
-  links flood the Problems tab). Committed tracking (root `features.yml`,
-  `harness/state/<slug>/state.md`) and external URLs may use normal markdown links.
+- ALWAYS keep specifications, research, plans, reviews, and other development
+  workflow artifacts in project-owned locations, separate from `.harness-local/`.
 - ALWAYS write scaffolding create-missing-only (append-if-line-missing for shared
   files like `.gitignore`/`.gitattributes`) unless the user opts in to overwrite.
 - NEVER ship both `.github/copilot-instructions.md` and this `AGENTS.md` as
@@ -102,7 +100,8 @@ Before doing any work, establish context in this exact order:
 3. If an active initiative has opted into a state file, read it:
    `harness/state/<project-slug>/state.md` (most initiatives run two-tier with no
    state.md — skip this step when none exists).
-4. Skim the newest file under `.copilot-tracking/research/` for the active task.
+4. Read any project-owned workflow artifact named by `PROGRESS.md` or the active
+  initiative state.
 5. (Optional) Query the session store for recent context (recent sessions, files
    touched, latest checkpoint).
 6. (Optional) If the current agent/tool exposes repo-scoped host memory, check it
@@ -112,7 +111,7 @@ Before doing any work, establish context in this exact order:
 Optionally run `node harness-scripts/harness.mjs session-start` (or the raw
 `node harness-scripts/session-start.mjs`) for a deterministic read-only
 banner of the volatile state (branch, PROGRESS focus/next/blockers, features
-rollup, active state phase, newest research file). It is an aid — you still
+rollup, active state phase, and incident health). It is an aid — you still
 interpret the state and choose the next action.
 
 Announce the recovered state (current focus + next step) before proceeding.
@@ -150,9 +149,10 @@ durable ledger (**what is done**), **`PROGRESS.md`** is the volatile pointer
 (current focus / next / blockers, with a lossy rolling "Done recently" window).
 **`harness/state/<slug>/state.md`** is an opt-in third tier — add it only when an
 initiative is multi-session **and** needs phase-aware resume.
-**`.copilot-tracking/`** is ephemeral gitignored RPI scratch; promote anything
-durable upward. Tracking and scaffolding writes are create-missing-only unless the
-user opts in to overwrite. Schemas and per-file rules live in
+Development workflow artifacts are project-owned and are not a generic tracking
+tier. `.harness-local/` is reserved for ignored, non-authoritative executable
+state. Tracking and scaffolding writes are create-missing-only unless the user
+opts in to overwrite. Schemas and per-file rules live in
 [.github/instructions/tracking-files.instructions.md](.github/instructions/tracking-files.instructions.md).
 
 ## Security notes

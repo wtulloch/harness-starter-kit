@@ -327,21 +327,6 @@ for (const file of committedDocs) {
 }
 
 // ---------------------------------------------------------------------------
-// Check 7 — .copilot-tracking/** cited as plain text (no markdown link, no #file:).
-// ---------------------------------------------------------------------------
-for (const file of committedDocs) {
-  const text = markdownProse(readFileSync(file, 'utf8'));
-  for (const m of text.matchAll(linkRe)) {
-    if (m[1].includes('.copilot-tracking/')) {
-      fail('tracking-citation', `${rel(file)}: .copilot-tracking path in a markdown link (use plain text) → ${m[1].trim()}`);
-    }
-  }
-  if (/#file:[^\s)]*\.copilot-tracking\//.test(text)) {
-    fail('tracking-citation', `${rel(file)}: \`#file:\` reference to .copilot-tracking (use a plain-text path)`);
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Check 10 — concrete artifact paths in feature/state tracking resolve.
 // Placeholder-bearing template values and URLs are intentionally skipped.
 // ---------------------------------------------------------------------------

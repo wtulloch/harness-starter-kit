@@ -35,6 +35,10 @@ rather than maintaining another artifact list.
 4. Record whether `AGENTS.md`, `.github/copilot-instructions.md`, both, or neither
    exists for later reconciliation.
 5. Resolve the requested profile from the adoption profile catalog.
+6. Detect any existing development workflow from repository instructions,
+   documentation, and established artifact directories. Record its rules,
+   authoritative paths, persistence policy, gates, and resume source when these
+   are unambiguous.
 
 Do not write files during this gate.
 
@@ -49,6 +53,14 @@ Gather only missing facts, with no more than eight focused questions covering:
 * Desired agent roles and repeatable skills
 * Required or optional command-line tools beyond Git
 * Whether phase-aware third-tier state is needed
+* Development workflow: preserve the detected workflow, use no formal workflow,
+  or define a custom workflow
+
+For a custom workflow, gather its name, phases or activities, transition and
+approval gates, authoritative artifact types and locations, commit or ephemeral
+policy, validation requirements, and session-resume source. Do not assume the
+workflow is linear or specification-driven. RPI is one possible custom workflow,
+not a privileged profile or built-in directory convention.
 
 Map detected manifests to tool requirements using
 [toolchain detection](../scaffold-harness/references/toolchain-detection.md).
@@ -57,7 +69,9 @@ Map detected manifests to tool requirements using
 
 Present a compact specification containing the target, project slug, selected
 profile, overwrite policy, tracking tiers, reconciliation action, and exact
-fixed-artifact plan resolved from the catalog.
+fixed-artifact plan resolved from the catalog. Include the resolved development
+workflow as `existing`, `none`, or `custom`, plus every workflow-specific file
+and directory that would be created.
 
 Wait for explicit user confirmation before writing, editing, moving, or deleting
 any file. A request to inspect, plan, or preview is not write approval. If the
@@ -74,13 +88,21 @@ After confirmation, follow the emit and reconciliation procedure in the
 3. Preserve project-owned content and shared-file lines.
 4. Seed `PROGRESS.md` and `features.yml`; create phase-aware state only when the
    user selected the third tier.
-5. Never activate emitted hooks automatically.
+5. For `existing`, preserve project-owned workflow rules. For `none`, create no
+   workflow section, directory, instruction, or skill. For `custom`, place only
+   concise repository-wide rules in the project-owned part of `AGENTS.md`; put
+   substantial phase or path behavior in a dedicated path-scoped instruction,
+   and add a skill only for a genuinely reusable multi-step procedure.
+6. Scope custom workflow instructions to the confirmed artifact paths. Keep
+   workflow artifacts independent from `.harness-local/`, which is reserved for
+   non-authoritative executable state.
+7. Never activate emitted hooks automatically.
 
 ## Gate 5: Validate
 
 Check every selected artifact for existence and expected structure. Validate
-frontmatter, instruction globs, links, tracking citations, profile completeness,
-and the single always-on instruction rule. Run the repository's dependency-free
+frontmatter, instruction globs, links, profile completeness, workflow artifact
+paths, and the single always-on instruction rule. Run the repository's dependency-free
 harness validator when available. Fix only blocking defects introduced by this
 scaffold, then rerun the narrow check.
 

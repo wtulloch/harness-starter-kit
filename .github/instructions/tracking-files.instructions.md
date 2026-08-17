@@ -1,5 +1,5 @@
 ---
-description: "Root tracking-file conventions for PROGRESS.md, features.yml, and project-notes/. USE FOR: updating feature status or history[], writing current focus / next steps / blockers, pruning Done recently, deciding which tier a fact belongs in, logging a decision and its rationale. DO NOT USE FOR: .copilot-tracking scratch or harness/state/<slug>/state.md (see harness-conventions)."
+description: "Root tracking-file conventions for PROGRESS.md, features.yml, and project-notes/. USE FOR: updating feature status or history[], writing current focus / next steps / blockers, pruning Done recently, deciding which tier a fact belongs in, logging a decision and its rationale. DO NOT USE FOR: harness/state/<slug>/state.md (see harness-conventions) or project-owned development workflow artifacts."
 applyTo: 'PROGRESS.md,features.yml,**/project-notes/**'
 ---
 

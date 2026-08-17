@@ -85,10 +85,6 @@ const REPAIR = {
     class: 'repairable',
     expected: 'Fix or remove the broken markdown link so it resolves to an existing path.',
   },
-  'tracking-citation': {
-    class: 'repairable',
-    expected: 'Cite .copilot-tracking paths as plain text — no markdown link and no `#file:` reference.',
-  },
   'tracked-artifact': {
     class: 'repairable',
     expected: 'Create the referenced artifact at the given path, or correct the tracked path.',

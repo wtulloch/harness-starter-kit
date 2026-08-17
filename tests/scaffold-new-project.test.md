@@ -268,7 +268,7 @@ Agent Skill:
 | `.github/prompts/` | ≥1 `*.prompt.md` |
 | `knowledge-base/index.md` | Present with body docs linked |
 | `harness/state/demo-service/state.md` | Present; slug matches `$SLUG` |
-| `.gitignore` | Contains a `.copilot-tracking/` entry |
+| `.gitignore` | Contains `.harness-local/` and `.copilot-tracking/` entries |
 | `.gitattributes` | Contains `* text=auto eol=lf` (emitted files normalize to LF) |
 
 **Verify** (choose one shell):
@@ -279,6 +279,7 @@ PowerShell:
 Test-Path AGENTS.md, PROGRESS.md, features.yml, `
   .github\instructions, .github\skills, .github\prompts, `
   knowledge-base\index.md, harness\state\demo-service\state.md
+Select-String -Path .gitignore -Pattern '.harness-local' -Quiet
 Select-String -Path .gitignore -Pattern '.copilot-tracking' -Quiet
 Select-String -Path .gitattributes -Pattern 'eol=lf' -Quiet
 ```
@@ -290,6 +291,7 @@ test -f AGENTS.md && test -f PROGRESS.md && test -f features.yml && \
    test -d .github/instructions && test -d .github/skills && \
    test -d .github/prompts && test -f knowledge-base/index.md && \
    test -f harness/state/demo-service/state.md
+grep -qF '.harness-local' .gitignore
 grep -qF '.copilot-tracking' .gitignore
 grep -qF 'eol=lf' .gitattributes
 ```
@@ -497,7 +499,7 @@ git status --short
 1. `harness/state/demo-service/state.md`, `AGENTS.md`, `PROGRESS.md`,
    `features.yml`, `.github/**`, `knowledge-base/**`, and (if emitted)
    `harness-scripts/**` + `.github/workflows/validate.yml` are staged.
-2. `.copilot-tracking/` is **not** staged (gitignored).
+2. `.harness-local/` and `.copilot-tracking/` are **not** staged (gitignored).
 3. `state.md` contains a `transition_log`/`session_log` entry for this scaffold.
 
 - **Result**: ☐ PASS ☐ FAIL
@@ -508,7 +510,7 @@ git status --short
 
 **Action**: Repeat Stages 0–4 against a **pre-populated** target, one that already
 has its own `AGENTS.md` (project-owned content), a `.github/copilot-instructions.md`,
-a populated `.gitignore` (with real ignore lines but no `.copilot-tracking/`), and
+a populated `.gitignore` (with real ignore lines but neither harness ignore), and
 a legacy file containing a secret-like string. First decline or omit instruction
 migration and verify that both instruction files remain unchanged. Then rerun,
 explicitly consent to instruction migration, and let the generator adopt.
@@ -519,7 +521,7 @@ explicitly consent to instruction migration, and let the generator adopt.
 |-----------|-------|
 | Managed block injected | `AGENTS.md` contains the `HARNESS:BEGIN`/`HARNESS:END` sentinels and the four harness-owned headings between them |
 | Project sections preserved | The pre-existing project overview / build commands are unchanged |
-| `.gitignore` appended, not clobbered | Existing lines survive **and** `.copilot-tracking/` is now present |
+| `.gitignore` appended, not clobbered | Existing lines survive **and** `.harness-local/` plus `.copilot-tracking/` are now present |
 | Consent required | Before explicit migration consent, `.github/copilot-instructions.md` is preserved byte-for-byte and no AGENTS reconciliation write occurs |
 | Consented migrate-and-delete | After explicit consent, `.github/copilot-instructions.md` is gone (its content migrated into `AGENTS.md` first); a normal validate run reports no `FAIL: always-on` |
 | Check 17 gate | Stripping a required heading from the managed block yields `FAIL: managed-block` |
@@ -571,7 +573,7 @@ whatever it was before the test — the test only wrote inside `$TARGET`).
 | 4b | Validator fails loudly on seeded fault | ☐ |
 | 5 | Session banner read-only (Layer 3) | ☐ |
 | 6 | Non-destructive idempotent re-run | ☐ |
-| 7 | Tracking committable + `.copilot-tracking/` ignored | ☐ |
+| 7 | Tracking committable + local harness directories ignored | ☐ |
 | 7b | Brownfield adoption into a non-empty target | ☐ |
 | 8 | Teardown | ☐ |
 

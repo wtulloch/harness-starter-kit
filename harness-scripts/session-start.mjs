@@ -7,7 +7,7 @@
 // to hallucinate. Read-only: never writes. Fail-open: missing sources degrade to a
 // labeled note and the script still exits 0. Node built-ins only.
 
-import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
@@ -111,25 +111,6 @@ if (existsSync(stateRoot)) {
   }
 } else {
   line('State:    (no harness/state directory)');
-}
-
-// --- Newest file under .copilot-tracking/research/ (path + mtime). ---
-const researchRoot = join(ROOT, '.copilot-tracking', 'research');
-function newest(dir, best = null) {
-  if (!existsSync(dir)) return best;
-  for (const name of readdirSync(dir)) {
-    const full = join(dir, name);
-    const st = statSync(full);
-    if (st.isDirectory()) best = newest(full, best);
-    else if (!best || st.mtimeMs > best.mtime) best = { path: full, mtime: st.mtimeMs };
-  }
-  return best;
-}
-const latest = newest(researchRoot);
-if (latest) {
-  line(`Research: ${rel(latest.path)} (${new Date(latest.mtime).toISOString().slice(0, 10)})`);
-} else {
-  line('Research: (none under .copilot-tracking/research/)');
 }
 
 // --- Backpressure health from harness/incidents.jsonl (read-only, fail-open). ---

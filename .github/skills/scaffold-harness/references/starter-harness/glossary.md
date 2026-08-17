@@ -56,9 +56,9 @@ status_legend, features[]).
 **Checkpoint** — A named restart point mirroring the session-store checkpoint
 fields (overview / work_done / technical_details / important_files / next_steps).
 
-**RPI (Research → Plan → Implement)** — The workflow split that separates
-exploration from execution, mirrored by the `.copilot-tracking/` research, plans,
-and details artifacts.
+**Development workflow** — A project-owned sequence of activities, transitions,
+approval gates, artifact locations, validation requirements, and resume source.
+The harness can preserve an existing workflow, use none, or encode a custom one.
 
 **Chronicle / session store** — A local, append-only SQLite history of past
 sessions maintained by the agent host. Retrospective and read-only for the agent;
@@ -98,7 +98,7 @@ session-start` / `... session-end`), plus declared loop guards.*
 **Loop guard** — A declared stop condition for the harness's own re-engage loop,
 living in `harness/guards.yml` and evaluated by `harness-scripts/guard.mjs` at
 gate-run boundaries against counters in gitignored
-`.copilot-tracking/guards/state.json`. Two ship: `heal-loop-cap` (an identical
+`.harness-local/guards/state.json`. Two ship: `heal-loop-cap` (an identical
 repair-directive set across the cap) and `no-progress` (an identical
 failure-signature set across the window *with a witnessed edit between each run* —
 without that witness, re-reading the gate's output would count as a stall).

@@ -1,13 +1,12 @@
 ---
-description: "Harness tracking conventions for the starter engineering harness: two-tier default (PROGRESS.md + features.yml) with opt-in per-slug harness/state/state.md, the state.md update protocol when one exists, plain-text .copilot-tracking scratch citations, and non-destructive create-missing-only default."
-applyTo: '**/harness/state/**,**/.copilot-tracking/**'
+description: "Harness tracking conventions for the starter engineering harness: two-tier default (PROGRESS.md + features.yml), opt-in per-slug harness/state/state.md, the state.md update protocol when one exists, and non-destructive create-missing-only behavior."
+applyTo: '**/harness/state/**'
 ---
 
 # Harness Tracking Conventions
 
-These rules auto-activate whenever any file under the committed tracking tree
-(`harness/state/`) or the ephemeral scratch tree (`.copilot-tracking/`) is created
-or modified.
+These rules auto-activate whenever a file under the committed initiative-state
+tree (`harness/state/`) is created or modified.
 
 ## Two-tier default + routing rule
 
@@ -22,21 +21,10 @@ nothing has to be reconciled across files:
   window** (lossy — prune freely); it is *not* the durable done-record.
 - **`harness/state/<slug>/state.md`** (opt-in third tier): add **only** when an
   initiative spans multiple sessions and needs phase-aware resume.
-- **`.copilot-tracking/`** (ephemeral, gitignored): RPI scratch (research / plans /
-  details / changes / reviews / logs). Never rely on it surviving a fresh clone;
-  promote anything durable upward into the committed tiers.
 
 Decision gate for the third tier: create `state.md` only if the initiative is
 multi-session **and** needs phase-aware resumption. Otherwise `PROGRESS.md` +
 `features.yml` are sufficient.
-
-## Plain-text path citations
-
-Cite every file under `.copilot-tracking/` as a **plain-text workspace-relative
-path** — never a markdown link, never `#file:`. VS Code resolves links/`#file:`
-and reports errors for missing targets, flooding the Problems tab. Committed
-tracking (root `features.yml`, `harness/state/<slug>/state.md`) and external URLs
-may use normal markdown links.
 
 ## Slug directory (opt-in)
 

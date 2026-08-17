@@ -1,6 +1,6 @@
 ---
 name: maintain-harness
-description: "Audit and maintain an AI-agent engineering harness. USE FOR: keeping AGENTS.md lean, pruning bloated instructions, verifying applyTo globs, checking frontmatter validity, refreshing knowledge-base links, archiving completed .copilot-tracking artifacts, checking that only one always-on file ships. DO NOT USE FOR: scaffolding a new harness (use scaffold-harness) or general coding tasks."
+description: "Audit and maintain an AI-agent engineering harness. USE FOR: keeping AGENTS.md lean, pruning bloated instructions, verifying applyTo globs, checking frontmatter validity, refreshing knowledge-base links, checking workflow customization scope, and checking that only one always-on file ships. DO NOT USE FOR: scaffolding a new harness (use scaffold-harness) or general coding tasks."
 ---
 
 # Maintain Harness
@@ -53,18 +53,21 @@ not a nicety.
 - Retire stale gotchas; link out to canonical docs instead of copying frequently
   changing content.
 
-### 5. Check tracking-path citations
+### 5. Check development workflow scope
 
-- Files under `.copilot-tracking/` (ephemeral, gitignored) are cited as plain-text
-  workspace-relative paths — never markdown links, never `#file:`. Committed
-  tracking (`features.yml`, `harness/state/<slug>/state.md`) may use normal links.
+- Preserve project-owned development workflow rules and authoritative artifact
+  paths. Do not introduce a lifecycle when the project selected no formal
+  workflow.
+- Keep concise repository-wide rules in `AGENTS.md`; move substantial phase or
+  path behavior into a specifically scoped instruction. Use a skill only for a
+  reusable multi-step procedure.
+- Confirm `.harness-local/` contains only non-authoritative executable state.
 
-### 6. Archive completed tracking artifacts
+### 6. Refresh committed tracking
 
 - Confirm each active `harness/state/<slug>/state.md` is accurate so resume works
   (only when an initiative opted into the phase-aware third tier — two-tier
   initiatives have none).
-- Archive or close completed research + plans; remove dead context.
 - Update `PROGRESS.md` and `features.yml` statuses.
 - If the current agent/tool exposes host memory, confirm nothing *required*
   (onboarding steps, build/test commands) lives only there — it must also be in
@@ -73,7 +76,8 @@ not a nicety.
 
 ### 7. Run the deterministic validator (done-gate)
 
-The prose checks in §3–§5 map onto the optional Layer 1 validator, which makes them
+The deterministic parts of the prose checks in §3–§5 map onto the optional Layer
+1 validator, which makes them
 tokenless and objective. When Node is present, a maintenance change is **not done
 until the validator confirms it**:
 
@@ -93,7 +97,7 @@ Layer self-audit (which layer each check defends):
 
 | Maintenance check | Layer |
 |-------------------|-------|
-| Frontmatter / skill-name / `applyTo` / features schema / links / tracking-paths | L1 Constraint (validator) |
+| Frontmatter / skill-name / `applyTo` / features schema / links | L1 Constraint (validator) |
 | AGENTS.md leanness (line budget), KB freshness, progressive disclosure | L1 Constraint (line budget) + L2 Context (freshness) |
 | Secret-scan (committed credentials) | L1 Constraint (validator) |
 | Agent `tools:` scope, subagent boundaries | L3 Execution |

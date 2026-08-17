@@ -1,7 +1,8 @@
-# Ephemeral RPI scratch (research, plans, details, changes, reviews, logs).
-# Regenerated per task and intentionally NOT committed — durable, forward-looking
-# tracking lives in committed files instead: root PROGRESS.md, root features.yml,
-# and harness/state/<slug>/state.md.
+# Private executable runtime state. Durable state lives in root PROGRESS.md,
+# root features.yml, and optionally harness/state/<slug>/state.md.
+.harness-local/
+
+# Optional project-owned agent scratch. No workflow lifecycle is implied.
 .copilot-tracking/
 
 # Secrets / env

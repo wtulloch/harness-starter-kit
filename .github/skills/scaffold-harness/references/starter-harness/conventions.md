@@ -46,13 +46,12 @@ Treat `AGENTS.md` like code: review when things go wrong, prune regularly. For e
 line ask *"Would removing this cause the agent to make mistakes?"* If not, cut it.
 Add emphasis (IMPORTANT / YOU MUST) only where adherence genuinely matters.
 
-## Plain-text tracking-path citations
+## Development workflow ownership
 
-Files under `.copilot-tracking/` (ephemeral RPI scratch, gitignored) MUST be cited
-as **plain-text workspace-relative paths** — never markdown links, never `#file:`.
-VS Code resolves links/`#file:` and reports errors for missing targets, flooding
-the Problems tab. Committed tracking (root `features.yml`,
-`harness/state/<slug>/state.md`) and external URLs may use normal markdown links.
+Specifications, research, plans, reviews, and other development workflow
+artifacts belong in project-owned locations. The starter does not prescribe a
+lifecycle or a universal workflow directory. Reserve `.harness-local/` for
+ignored, non-authoritative executable state.
 
 ## Tracking routing rule (two-tier default)
 

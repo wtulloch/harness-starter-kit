@@ -1,6 +1,6 @@
 ---
 name: scaffold-harness
-description: "Emit an AI-agent engineering harness into a target repo. USE FOR: scaffolding AGENTS.md, .github/instructions, .github/skills, .github/prompts, .github/agents, a knowledge base, and .copilot-tracking state into a repository; generating harness files from templates idempotently and non-destructively. DO NOT USE FOR: maintaining an existing harness (use maintain-harness) or general project scaffolding."
+description: "Emit an AI-agent engineering harness into a target repo. USE FOR: scaffolding AGENTS.md, .github/instructions, .github/skills, .github/prompts, .github/agents, a knowledge base, and tracking state into a repository; generating harness files from templates idempotently and non-destructively. DO NOT USE FOR: discovering or selecting a development workflow, maintaining an existing harness (use maintain-harness), or general project scaffolding."
 user-invocable: false
 ---
 
@@ -72,6 +72,14 @@ target repository, path-scoped
 `review-session` self-healing skill), and reusable `.github/prompts/*.prompt.md`.
 Use the current host's file-editing capabilities and follow the customization
 authoring rules for well-formed frontmatter.
+
+Apply the development-workflow decision confirmed by `build-harness`. Preserve
+an `existing` workflow, emit nothing workflow-specific for `none`, and for
+`custom` add concise project-owned `AGENTS.md` guidance plus a path-scoped
+instruction when the confirmed phases, gates, or artifact rules need detail.
+Create a skill only when the confirmed workflow contains a reusable multi-step
+procedure. Never infer an RPI lifecycle or create workflow directories that the
+user did not confirm.
 
 ### 2a. AGENTS.md managed-block injection (four-state reconciliation)
 
@@ -166,12 +174,15 @@ Wire `.gitignore` and `.gitattributes` with **create-then-append-if-line-missing
 (not create-whole-file-if-missing): when the target file is absent, create it with
 the harness lines; when it already exists, append only the specific harness lines
 it is missing and preserve all existing content. This guarantees the mandatory
-`.copilot-tracking/` ignore always lands (even into a repo that already has a
-`.gitignore`) without clobbering the target's own rules. Exact lines:
+`.harness-local/` and `.copilot-tracking/` ignores always land (even into a repo
+that already has a `.gitignore`) without clobbering the target's own rules. Exact
+lines:
 
-- `.gitignore` → `.copilot-tracking/`, `.env`, `.env.*`, `!.env.example` (the
-  `.copilot-tracking/` scratch tree and local secrets stay out of version control;
-  `!.env.example` re-includes the committed example).
+- `.gitignore` → `.harness-local/`, `.copilot-tracking/`, `.env`, `.env.*`,
+  `!.env.example` (private executable state, optional project-owned agent
+  scratch, and local secrets stay out of version control; `!.env.example`
+  re-includes the committed example). Ignoring `.copilot-tracking/` does not
+  prescribe its contents or a development lifecycle.
 - `.gitattributes` → `* text=auto eol=lf` so emitted files normalize to LF and
   `local == CI` regardless of the contributor's platform.
 

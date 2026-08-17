@@ -132,6 +132,7 @@
       "target": ".gitignore",
       "operation": "append-lines",
       "lines": [
+        ".harness-local/",
         ".copilot-tracking/",
         ".env",
         ".env.*",

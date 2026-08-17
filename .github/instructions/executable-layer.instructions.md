@@ -49,7 +49,8 @@ the emitted `validate.yml` stays validator-only (a target has no `tests/`).
 
 Scripts do not mutate the committed tree unless the caller passes an explicit
 opt-in flag (`--fix`). Any cross-run state lives under gitignored
-`.copilot-tracking/` and is never authoritative.
+`.harness-local/` and is never authoritative. Development workflow artifacts do
+not live there.
 
 ## Location-agnostic ROOT
 

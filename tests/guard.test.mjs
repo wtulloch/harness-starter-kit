@@ -4,7 +4,7 @@
 // The guard layer is the harness's only stop condition for its own re-engage
 // loop, so three properties are contractual: it must stay silent and inert when
 // nothing is declared, it must never block on a guard that is not proof-grade,
-// and it must never write outside gitignored .copilot-tracking/.
+// and it must never write outside gitignored .harness-local/.
 //
 //   node --test
 //   node tests/guard.test.mjs   (also works standalone)
@@ -42,7 +42,7 @@ import {
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const GUARD_SCRIPT = join(ROOT, 'harness-scripts', 'guard.mjs');
-const STATE_REL = join('.copilot-tracking', 'guards', 'state.json');
+const STATE_REL = join('.harness-local', 'guards', 'state.json');
 
 const MANIFEST =
   'version: 1\n' +
@@ -149,16 +149,16 @@ test('HARNESS_GUARD_MODE and HARNESS_GUARD_OFF override, and are reported', () =
 
 test('a corrupt state file reads as blank instead of throwing', () => {
   const dir = fixture();
-  mkdirSync(join(dir, '.copilot-tracking', 'guards'), { recursive: true });
+  mkdirSync(join(dir, '.harness-local', 'guards'), { recursive: true });
   writeFileSync(join(dir, STATE_REL), '{ not json');
   assert.deepEqual(readState(dir), { version: 1, guards: {}, overrides: [] });
 });
 
-test('state is written only under gitignored .copilot-tracking/', () => {
+test('state is written only under gitignored .harness-local/', () => {
   const dir = fixture();
   recordHealRun([directive('link', 'README.md')], dir, {});
   assert.ok(existsSync(join(dir, STATE_REL)), 'state.json must exist');
-  assert.deepEqual(readdirSync(dir).sort(), ['.copilot-tracking', 'AGENTS.md', 'harness']);
+  assert.deepEqual(readdirSync(dir).sort(), ['.harness-local', 'AGENTS.md', 'harness']);
   assert.deepEqual(readdirSync(join(dir, 'harness')), ['guards.yml']);
   assert.equal(readFileSync(join(dir, 'harness', 'guards.yml'), 'utf8'), MANIFEST);
 });
@@ -166,7 +166,7 @@ test('state is written only under gitignored .copilot-tracking/', () => {
 test('an absent manifest records nothing at all', () => {
   const dir = fixture(null);
   assert.equal(recordHealRun([directive('link', 'README.md')], dir, {}), null);
-  assert.equal(existsSync(join(dir, '.copilot-tracking')), false);
+  assert.equal(existsSync(join(dir, '.harness-local')), false);
 });
 
 // --- heal-loop-cap counting. --------------------------------------------------
@@ -353,7 +353,7 @@ test('at audit a no-progress trip is recorded but produces no output and exit 0'
 test('an absent manifest means no no-progress evaluation at all', () => {
   const dir = fixture(null);
   assert.equal(recordNoProgress([directive('link', 'README.md')], dir, {}), null);
-  assert.equal(existsSync(join(dir, '.copilot-tracking')), false);
+  assert.equal(existsSync(join(dir, '.harness-local')), false);
 });
 
 // --- Seeded incident record (the capture bootstrap). --------------------------
@@ -425,7 +425,7 @@ test('readGuardTrips reports unavailable rather than "no trips" when state is ab
 
 test('session-end announces the fallback out loud when guard state is unavailable', () => {
   const banner = runSessionEnd(sessionEndFixture());
-  assert.match(banner, /Guards:\s+\(\.copilot-tracking\/guards\/state\.json unavailable/);
+  assert.match(banner, /Guards:\s+\(\.harness-local\/guards\/state\.json unavailable/);
   assert.match(banner, /falling back to the incident-threshold trigger below only/);
   assert.doesNotMatch(banner, /GUARD_INCIDENT:/);
 });

@@ -72,9 +72,9 @@ when) an initiative is multi-session and needs it:
 
 Durable tracking (`PROGRESS.md`, `features.yml`, and any opted-in
 `harness/state/<slug>/state.md`) is committed and versioned — portable and
-human-reviewable. Ephemeral RPI scratch under `.copilot-tracking/` (research /
-plans / changes / logs) is gitignored; promote anything durable into the committed
-tiers. The host session store is an optional retrospective accelerator for
+human-reviewable. Specifications, research, plans, reviews, and other development
+workflow artifacts remain project-owned. Ignored `.harness-local/` contains only
+non-authoritative executable state. The host session store is an optional retrospective accelerator for
 recall/standups — not a place to declare intended next steps.
 
 ## Host agent memory (optional, non-portable)
@@ -147,11 +147,11 @@ deterministic.
 | Layer | Artifact | Deterministic? | Fails open? |
 |-------|----------|----------------|-------------|
 | **L0 Doc harness** (always present) | AGENTS.md + instructions/skills/prompts/agents + knowledge-base | Agent-interpreted | n/a — this is the spec |
-| **L1 Constraint** (optional) | `harness-scripts/validate-harness.mjs` (frontmatter, skill-name, `applyTo`, features schema, links, tracking-paths, incident-log integrity, AGENTS.md line budget, secret-scan, agent-hooks config consistency, script-import resolution, generator emit-contract coverage), plus `harness-scripts/doctor.mjs` (hard-gated tool/dependency pre-flight, reading `harness/doctor.yml`; consistency-checked by validator Check 14); a missing required tool is also surfaced as a `doctor-missing-tool` repair directive by `harness-scripts/heal-harness.mjs` | Yes (no LLM) | Yes — absent runtime → agent-driven checks only |
+| **L1 Constraint** (optional) | `harness-scripts/validate-harness.mjs` (frontmatter, skill-name, `applyTo`, features schema, links, incident-log integrity, AGENTS.md line budget, secret-scan, agent-hooks config consistency, script-import resolution, generator emit-contract coverage), plus `harness-scripts/doctor.mjs` (hard-gated tool/dependency pre-flight, reading `harness/doctor.yml`; consistency-checked by validator Check 14); a missing required tool is also surfaced as a `doctor-missing-tool` repair directive by `harness-scripts/heal-harness.mjs` | Yes (no LLM) | Yes — absent runtime → agent-driven checks only |
 | **L2 CI + local hook** (`full`) | `.github/workflows/validate.yml`, `.githooks/pre-commit` | Yes | Yes; `full` emits both, and the local hook still requires explicit activation through `core.hooksPath` |
 | **L2.5 Agent hooks** (`full`) | `.github/hooks/hooks.json` | No (runtime-dependent on each host's agent-hooks feature) | Yes; the shared file is inert until pinned host payload bytes justify event-specific adapters |
 | **L3 Session bootstrap** (optional) | `harness-scripts/session-start.mjs` | Yes (read-only) | Yes — missing sources degrade to a labeled note |
-| **L4 Re-engage + loop guards** (optional) | `harness-scripts/heal-harness.mjs` (structured repair directives, exit 2), plus `harness-scripts/guard.mjs` reading `harness/guards.yml` — declared loop guards (`heal-loop-cap`, `no-progress`) evaluated at gate-run boundaries, with cross-run counters in gitignored `.copilot-tracking/guards/state.json` | Yes (no LLM) | Yes — an absent/unparseable manifest or unwritable state degrades to "no guard", i.e. pre-guard behavior |
+| **L4 Re-engage + loop guards** (optional) | `harness-scripts/heal-harness.mjs` (structured repair directives, exit 2), plus `harness-scripts/guard.mjs` reading `harness/guards.yml` — declared loop guards (`heal-loop-cap`, `no-progress`) evaluated at gate-run boundaries, with cross-run counters in gitignored `.harness-local/guards/state.json` | Yes (no LLM) | Yes — an absent/unparseable manifest or unwritable state degrades to "no guard", i.e. pre-guard behavior |
 
 The L1/L3 scripts are also reachable through the command-verb dispatcher
 `harness-scripts/harness.mjs` (`node harness-scripts/harness.mjs validate` / `... session-start` /

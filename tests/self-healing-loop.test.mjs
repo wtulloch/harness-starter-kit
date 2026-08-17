@@ -223,7 +223,7 @@ try {
   );
 
   // Step 6b — the counter is cross-run state, not a committed artifact.
-  const guardState = join(target, '.copilot-tracking', 'guards', 'state.json');
+  const guardState = join(target, '.harness-local', 'guards', 'state.json');
   check('cap-state-is-gitignored-scratch', existsSync(guardState), guardState);
 
   // Step 6c — applying the repair re-greens and clears the cap.

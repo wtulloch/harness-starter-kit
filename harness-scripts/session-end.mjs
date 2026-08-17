@@ -6,7 +6,7 @@
 // to tell the agent to run the review-session skill before stopping. Two triggers,
 // either of which fires it:
 //
-//   1. a guard trip recorded in .copilot-tracking/guards/state.json (deterministic —
+//   1. a guard trip recorded in .harness-local/guards/state.json (deterministic —
 //      one sensor firing outweighs any number of prose incidents), or
 //   2. a recurring signature in harness/incidents.jsonl at the promote threshold.
 //
@@ -64,8 +64,8 @@ line('  3. If a milestone was reached, append to the active harness/state/<slug>
 line('  4. Green-gate: run `node harness-scripts/harness.mjs heal` — apply any directives, re-run at most 3 times;');
 line('     on a `GUARD: heal-loop-cap` line, stop and escalate to the human instead.');
 
-// --- Trigger 1: guard trips from .copilot-tracking/guards/state.json (read-only). ---
-const statePath = join(ROOT, '.copilot-tracking', 'guards', 'state.json');
+// --- Trigger 1: guard trips from .harness-local/guards/state.json (read-only). ---
+const statePath = join(ROOT, '.harness-local', 'guards', 'state.json');
 let trips = { available: false, path: statePath, tripped: [] };
 if (guard && guard.readGuardTrips) {
   try { trips = guard.readGuardTrips(ROOT); } catch { /* fail-open: keep the unavailable default */ }

@@ -21,7 +21,7 @@
 // *with an edit witness between each* — the witness is what stops merely
 // re-reading the validator's output from counting as a stalled loop).
 //
-// Cross-run counters live in gitignored .copilot-tracking/guards/state.json and
+// Cross-run counters live in gitignored .harness-local/guards/state.json and
 // are never authoritative: an absent manifest, an unparseable manifest, or an
 // unwritable state file all degrade to "no guard", which is the pre-guard
 // behavior. Nothing here writes to a committed file — a trip *prints* a
@@ -81,7 +81,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 export const ROOT = findRepoRoot(HERE);
 
 const manifestPath = (root) => join(root, 'harness', 'guards.yml');
-const statePath = (root) => join(root, '.copilot-tracking', 'guards', 'state.json');
+const statePath = (root) => join(root, '.harness-local', 'guards', 'state.json');
 
 // ---------------------------------------------------------------------------
 // Manifest.
@@ -200,7 +200,7 @@ export function readState(root = ROOT) {
   }
 }
 
-/** Best-effort: an unwritable .copilot-tracking/ degrades to no-guard, not an error. */
+/** Best-effort: an unwritable .harness-local/ degrades to no-guard, not an error. */
 export function writeState(state, root = ROOT) {
   try {
     mkdirSync(dirname(statePath(root)), { recursive: true });

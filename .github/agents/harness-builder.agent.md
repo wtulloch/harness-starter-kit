@@ -23,7 +23,9 @@ confirmation, emission, and reporting; this persona adds no alternate workflow.
 * Preserve project-owned content and require explicit approval before replacing
    existing harness-owned content.
 * Do not run product build, deployment, or dependency-install commands.
-* Keep `.copilot-tracking/` citations as plain workspace-relative text.
+* Treat development workflows as project-owned input. Preserve an existing
+   workflow, allow no formal workflow, and never privilege RPI or another method.
+* Keep `.harness-local/` reserved for non-authoritative executable state.
 
 ## Working Style
 

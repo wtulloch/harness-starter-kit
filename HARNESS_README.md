@@ -46,7 +46,7 @@ session. It is **not** a hardware harness or a software *test* harness; here the
 | `harness/` | Committed harness data: `doctor.yml` / `guards.yml` manifests, `incidents.jsonl`, and per-initiative `state/<slug>/state.md` (opt-in phase-aware tier; two-tier default is `PROGRESS.md` + `features.yml`) |
 | `tests/` | Automated `node:test` suites plus their acceptance-procedure docs |
 | `project-notes/` | Durable decision log, work summaries, and assessments |
-| `.copilot-tracking/` | Ephemeral RPI scratch (research, plans); gitignored |
+| `.harness-local/` | Ignored, non-authoritative executable runtime state |
 
 ## How to use it
 

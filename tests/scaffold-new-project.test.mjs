@@ -96,6 +96,22 @@ check('build-harness-six-gates', ['Detect', 'Gather', 'Confirm', 'Scaffold', 'Va
   .every((gate, index) => BUILD_HARNESS_SKILL.includes(`## Gate ${index + 1}: ${gate}`)));
 check('build-harness-confirmation-before-write', /Wait for explicit user confirmation before writing/.test(BUILD_HARNESS_SKILL)
   && BUILD_HARNESS_SKILL.indexOf('## Gate 3: Confirm') < BUILD_HARNESS_SKILL.indexOf('## Gate 4: Scaffold'));
+check('workflow-existing-contract', /For `existing`, preserve project-owned workflow rules/.test(BUILD_HARNESS_SKILL)
+  && /Detect any existing development workflow/.test(BUILD_HARNESS_SKILL));
+check('workflow-none-contract', /For `none`, create no[\s\S]+workflow section, directory, instruction, or skill/.test(BUILD_HARNESS_SKILL));
+check('workflow-custom-schema', [
+  /name/,
+  /phases or activities/,
+  /transition and\s+approval gates/,
+  /artifact types and locations/,
+  /commit or ephemeral\s+policy/,
+  /validation requirements/,
+  /session-resume source/,
+].every((field) => field.test(BUILD_HARNESS_SKILL))
+  && /Do not assume the\s+workflow is linear or specification-driven/.test(BUILD_HARNESS_SKILL));
+const fixedWorkflowSurfaces = `${JSON.stringify(PROFILE_CATALOG)}\n${readFileSync(join(ROOT, '.github', 'skills', 'scaffold-harness', 'assets', 'templates', 'AGENTS.md.template'), 'utf8')}`;
+check('workflow-rpi-unprivileged', /RPI is one possible custom workflow,\s+not a privileged profile or built-in directory convention/.test(BUILD_HARNESS_SKILL)
+  && !/\bRPI\b|Research\s*(?:→|->)\s*Plan\s*(?:→|->)\s*Implement/.test(fixedWorkflowSurfaces));
 check('build-harness-portable-dependencies', portableSkillViolations(BUILD_HARNESS_SKILL).length === 0,
   portableSkillViolations(BUILD_HARNESS_SKILL).join(', '));
 check('build-harness-relative-references', [...BUILD_HARNESS_SKILL.matchAll(/\]\(([^)]+)\)/g)]
@@ -307,8 +323,14 @@ try {
   const withPlaceholders = committed.filter((r) => readFileSync(join(target, r), 'utf8').includes('{{'));
   check('no-placeholders', withPlaceholders.length === 0, withPlaceholders.join(', '));
 
-  // Stage 7 — .copilot-tracking/ is gitignored.
-  check('tracking-ignored', readFileSync(join(target, '.gitignore'), 'utf8').includes('.copilot-tracking/'));
+  // Stage 7 — private executable state is gitignored.
+  const emittedGitignore = readFileSync(join(target, '.gitignore'), 'utf8');
+  check('runtime-state-ignored', emittedGitignore.includes('.harness-local/'));
+  check('project-scratch-ignored', emittedGitignore.includes('.copilot-tracking/'));
+
+  const emittedAgents = readFileSync(join(target, 'AGENTS.md'), 'utf8');
+  check('workflow-neutral-agents',
+    !/\.copilot-tracking|\bRPI\b|Research\s*(?:→|->)\s*Plan\s*(?:→|->)\s*Implement/.test(emittedAgents));
 
   // Stage 7 — .gitattributes normalizes emitted files to LF (local == CI).
   check('gitattributes-lf', readFileSync(join(target, '.gitattributes'), 'utf8').includes('eol=lf'));
@@ -586,15 +608,6 @@ try {
     cleanup: () => rmSync(clDoc, { force: true }),
   });
 
-  const clAgents = join(target, 'AGENTS.md');
-  let origAgents;
-  closedLoop('tracking-citation', 'tracking-citation', {
-    setup: () => { origAgents = readFileSync(clAgents, 'utf8'); },
-    mutate: () => writeFileSync(clAgents, origAgents + '\n[bad](.copilot-tracking/x.md)\n'),
-    repair: () => writeFileSync(clAgents, origAgents + '\nSee .copilot-tracking/x.md (plain-text path).\n'),
-    cleanup: () => writeFileSync(clAgents, origAgents),
-  });
-
   const clCopilot = join(target, '.github/copilot-instructions.md');
   closedLoop('always-on', 'always-on', {
     mutate: () => writeFileSync(clCopilot, '# Co-shipped always-on file (should be flagged)\n'),
@@ -814,8 +827,6 @@ try {
     () => writeFileSync(copilotInstr, '# Co-shipped always-on file (should be flagged)\n'));
 
   const agents = join(target, 'AGENTS.md');
-  expectFail('validator-tracking-citation-negative', 'tracking-citation', agents,
-    () => writeFileSync(agents, readFileSync(agents, 'utf8') + '\n[bad](.copilot-tracking/x.md)\n'));
 
   const projectNote = join(target, 'project-notes', 'coverage.md');
   expectFail('validator-expanded-link-negative', 'link', projectNote,
@@ -1296,7 +1307,7 @@ try {
   //   b. append-if-line-missing the harness .gitignore lines,
   //   c. migrate-and-delete the co-shipped copilot-instructions.md.
   writeFileSync(bfAgents, `${projectAgents}\n${MANAGED_BLOCK}\n`);
-  for (const line of ['.copilot-tracking/', '.env', '.env.*', '!.env.example']) {
+  for (const line of ['.harness-local/', '.copilot-tracking/', '.env', '.env.*', '!.env.example']) {
     if (!readFileSync(bfGitignore, 'utf8').split(/\r?\n/).includes(line)) {
       writeFileSync(bfGitignore, readFileSync(bfGitignore, 'utf8') + line + '\n');
     }
@@ -1319,7 +1330,8 @@ try {
   // .gitignore append preserved the pre-existing lines AND added the harness line.
   const giFinal = readFileSync(bfGitignore, 'utf8');
   check('brownfield-gitignore-appended',
-    giFinal.includes('node_modules/') && giFinal.includes('dist/') && giFinal.includes('.copilot-tracking/'),
+    giFinal.includes('node_modules/') && giFinal.includes('dist/')
+      && giFinal.includes('.harness-local/') && giFinal.includes('.copilot-tracking/'),
     `gitignore=${JSON.stringify(giFinal)}`);
 
   // Explicitly consented migrate-and-delete removed the co-shipped file.
