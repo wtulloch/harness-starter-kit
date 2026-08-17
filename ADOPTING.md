@@ -35,8 +35,8 @@ to be copied manually. The repository is not published to the npm registry.
 Always plan first. For repeatable adoption, use the published version tag:
 
 ```bash
-npx --yes "github:wtulloch/harness-starter-kit#v0.7.2" plan --target .
-npx --yes "github:wtulloch/harness-starter-kit#v0.7.2" init --target . --yes
+npx --yes "github:wtulloch/harness-starter-kit#v0.7.3" plan --target .
+npx --yes "github:wtulloch/harness-starter-kit#v0.7.3" init --target . --yes
 ```
 
 The first `--yes`, before the GitHub package spec, belongs to npx and accepts its
@@ -59,10 +59,10 @@ source and installed hashes in `harness/installation.yml`. Use the same immutabl
 package spec for later inspection and maintenance:
 
 ```bash
-npx --yes "github:wtulloch/harness-starter-kit#v0.7.2" status --target .
-npx --yes "github:wtulloch/harness-starter-kit#v0.7.2" update --target . --yes
-npx --yes "github:wtulloch/harness-starter-kit#v0.7.2" validate --target .
-npx --yes "github:wtulloch/harness-starter-kit#v0.7.2" doctor --target .
+npx --yes "github:wtulloch/harness-starter-kit#v0.7.3" status --target .
+npx --yes "github:wtulloch/harness-starter-kit#v0.7.3" update --target . --yes
+npx --yes "github:wtulloch/harness-starter-kit#v0.7.3" validate --target .
+npx --yes "github:wtulloch/harness-starter-kit#v0.7.3" doctor --target .
 ```
 
 Updates replace unchanged harness-managed scripts, refresh only the sentinel-owned
@@ -79,8 +79,8 @@ Use the dedicated interface in both the plan and mutation when you explicitly
 approve that migration:
 
 ```bash
-npx --yes "github:wtulloch/harness-starter-kit#v0.7.2" plan --target . --migrate-instructions
-npx --yes "github:wtulloch/harness-starter-kit#v0.7.2" init --target . --migrate-instructions --yes
+npx --yes "github:wtulloch/harness-starter-kit#v0.7.3" plan --target . --migrate-instructions
+npx --yes "github:wtulloch/harness-starter-kit#v0.7.3" init --target . --migrate-instructions --yes
 ```
 
 The installer owns only catalog-defined artifacts. The generator remains
@@ -94,7 +94,7 @@ state. Starter architecture, conventions, and glossary references remain under
 If npx cannot infer the executable, select the package and binary explicitly:
 
 ```bash
-npm exec --yes --package="github:wtulloch/harness-starter-kit#v0.7.2" -- starter-harness plan --target .
+npm exec --yes --package="github:wtulloch/harness-starter-kit#v0.7.3" -- starter-harness plan --target .
 ```
 
 If npm's temporary Git clone fails, verify direct Git access and run the installer
@@ -103,7 +103,7 @@ from an inspected checkout. Keep the checkout pinned to the same release tag:
 ```bash
 git clone https://github.com/wtulloch/harness-starter-kit.git
 cd harness-starter-kit
-git checkout v0.7.2
+git checkout v0.7.3
 node installer/cli.mjs plan --target /path/to/target
 ```
 
@@ -117,8 +117,8 @@ trailing `--yes` only when you are ready to write.
 1. Plan and initialize the `full` profile with the same pinned package version:
 
    ```bash
-   npx --yes "github:wtulloch/harness-starter-kit#v0.7.2" plan --target . --profile full
-   npx --yes "github:wtulloch/harness-starter-kit#v0.7.2" init --target . --profile full --yes
+   npx --yes "github:wtulloch/harness-starter-kit#v0.7.3" plan --target . --profile full
+   npx --yes "github:wtulloch/harness-starter-kit#v0.7.3" init --target . --profile full --yes
    ```
 
 2. Open or reload the target in a supported host so Agent Skill discovery sees

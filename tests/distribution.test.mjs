@@ -481,6 +481,8 @@ test('mirror workflow smoke uses the resulting target SHA for read-only all-prof
   const pushStep = workflow.match(/- name: Commit and push if changed[\s\S]*?(?=\n      - name:)/)?.[0] ?? '';
   const smokeStep = workflow.match(/- name: Smoke test pinned GitHub package[\s\S]*$/)?.[0] ?? '';
 
+  assert.match(workflow, /npm install --global npm@11\.10\.1/);
+  assert.match(workflow, /test "\$\(npm --version\)" = "11\.10\.1"/);
   assert.match(pushStep, /id: sync-target/);
   assert.match(pushStep, /version="\$\(node -p "require\('\.\/package\.json'\)\.version"\)"/);
   assert.match(pushStep, /tag="v\$\{version\}"/);
