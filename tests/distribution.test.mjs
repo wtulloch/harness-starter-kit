@@ -428,6 +428,48 @@ test('mirror workflow covers package triggers, copy, boundary gate, and credenti
   assert.ok(validatorIndex < commitIndex);
 });
 
+test('adoption commands use the package semantic-version tag', () => {
+  const adopting = readFileSync(resolve(REPO_ROOT, 'ADOPTING.md'), 'utf8');
+  const readme = readFileSync(resolve(REPO_ROOT, 'README.md'), 'utf8');
+  const hook = readFileSync(resolve(REPO_ROOT, '.githooks/pre-commit'), 'utf8');
+  const expectedRef = `github:wtulloch/harness-starter-kit#v${packageJson.version}`;
+  const expectedPattern = new RegExp(expectedRef.replaceAll('.', '\\.'));
+
+  assert.match(adopting, expectedPattern);
+  assert.match(readme, expectedPattern);
+  assert.doesNotMatch(adopting, /TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE/);
+  assert.doesNotMatch(readme, /TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE/);
+  assert.equal(packageJson.scripts.version, 'node tools/sync-adoption-version.mjs && git add ADOPTING.md README.md');
+  assert.equal(packageJson.scripts['version:docs:check'], 'node tools/sync-adoption-version.mjs --check');
+  assert.match(hook, /\[ -f tools\/sync-adoption-version\.mjs \]/);
+  assert.match(hook, /node tools\/sync-adoption-version\.mjs --check \|\| exit 1/);
+
+  const checkResult = run(process.execPath, [resolve(REPO_ROOT, 'tools/sync-adoption-version.mjs'), '--check']);
+  assertSuccess(checkResult, 'adoption version check');
+
+  const fixture = mkdtempSync(join(tmpdir(), 'starter-harness-version-docs-'));
+  try {
+    writeFileSync(resolve(fixture, 'package.json'), '{"version":"1.2.3"}\n');
+    writeFileSync(resolve(fixture, 'ADOPTING.md'), 'github:wtulloch/harness-starter-kit#v1.2.2\ngit checkout v1.2.2\n');
+    writeFileSync(resolve(fixture, 'README.md'), 'github:wtulloch/harness-starter-kit#v1.2.2\n');
+
+    const staleResult = run(process.execPath, [
+      resolve(REPO_ROOT, 'tools/sync-adoption-version.mjs'), `--root=${fixture}`, '--check',
+    ]);
+    assert.equal(staleResult.status, 1);
+    assert.match(staleResult.stderr, /ADOPTING\.md does not reference v1\.2\.3/);
+
+    const updateResult = run(process.execPath, [
+      resolve(REPO_ROOT, 'tools/sync-adoption-version.mjs'), `--root=${fixture}`,
+    ]);
+    assertSuccess(updateResult, 'adoption version update');
+    assert.match(readFileSync(resolve(fixture, 'ADOPTING.md'), 'utf8'), /starter-kit#v1\.2\.3[\s\S]*git checkout v1\.2\.3/);
+    assert.match(readFileSync(resolve(fixture, 'README.md'), 'utf8'), /starter-kit#v1\.2\.3/);
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
 test('mirror workflow retains no retired prompt-adapter references', () => {
   const workflow = readFileSync(resolve(REPO_ROOT, '.github/workflows/sync-starter-kit.yml'), 'utf8');
   assert.doesNotMatch(workflow, /\.github\/prompts/, 'workflow metadata or sync command still references .github/prompts');
@@ -440,6 +482,12 @@ test('mirror workflow smoke uses the resulting target SHA for read-only all-prof
   const smokeStep = workflow.match(/- name: Smoke test pinned GitHub package[\s\S]*$/)?.[0] ?? '';
 
   assert.match(pushStep, /id: sync-target/);
+  assert.match(pushStep, /version="\$\(node -p "require\('\.\/package\.json'\)\.version"\)"/);
+  assert.match(pushStep, /tag="v\$\{version\}"/);
+  assert.match(pushStep, /git fetch --force --tags origin/);
+  assert.match(pushStep, /git rev-list -n 1 "\$tag"/);
+  assert.match(pushStep, /Tag \$tag already points to another commit/);
+  assert.match(pushStep, /git push --atomic origin HEAD:main "\$tag"/);
   assert.match(pushStep, /target_sha="\$\(git rev-parse HEAD\)"/);
   assert.match(pushStep, /echo "target_sha=\$target_sha" >> "\$GITHUB_OUTPUT"/);
   assert.match(smokeStep, /TARGET_SHA: \$\{\{ steps\.sync-target\.outputs\.target_sha \}\}/);

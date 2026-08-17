@@ -1,6 +1,6 @@
 {
   "name": "starter-harness",
-  "version": "0.2.0",
+  "version": "0.6.0",
   "private": true,
   "description": "Dependency-free installer for the starter AI-agent engineering harness",
   "type": "module",
@@ -25,7 +25,9 @@
     "lint": "node tools/lint-harness-scripts.mjs",
     "test": "node --test",
     "test:installer": "node --test tests/installer.test.mjs",
-    "pack:check": "npm pack --dry-run --json"
+    "pack:check": "npm pack --dry-run --json",
+    "version:docs:check": "node tools/sync-adoption-version.mjs --check",
+    "version": "node tools/sync-adoption-version.mjs && git add ADOPTING.md README.md"
   },
   "license": "MIT"
 }

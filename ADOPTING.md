@@ -28,16 +28,15 @@ profile also installs the complete generator bootstrap, so no starter files need
 to be copied manually. The repository is not published to the npm registry.
 
 > [!IMPORTANT]
-> The remote channel has not yet passed acceptance. The stable examples below
-> use an intentionally non-runnable target-SHA placeholder, and the mutable-main
-> example documents intended syntax rather than verified remote behavior.
+> Stable examples use the immutable semantic-version tag published from
+> `package.json`. Release acceptance may additionally record the resolved full
+> target SHA for byte-exact provenance.
 
-Always plan first. For repeatable adoption, replace the placeholder with the full
-40-character target commit SHA recorded after acceptance:
+Always plan first. For repeatable adoption, use the published version tag:
 
 ```bash
-npx --yes "github:wtulloch/harness-starter-kit#<TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE>" plan --target . --profile standard
-npx --yes "github:wtulloch/harness-starter-kit#<TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE>" init --target . --profile standard --yes
+npx --yes "github:wtulloch/harness-starter-kit#v0.6.0" plan --target . --profile standard
+npx --yes "github:wtulloch/harness-starter-kit#v0.6.0" init --target . --profile standard --yes
 ```
 
 The first `--yes`, before the GitHub package spec, belongs to npx and accepts its
@@ -60,10 +59,10 @@ source and installed hashes in `harness/installation.yml`. Use the same immutabl
 package spec for later inspection and maintenance:
 
 ```bash
-npx --yes "github:wtulloch/harness-starter-kit#<TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE>" status --target .
-npx --yes "github:wtulloch/harness-starter-kit#<TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE>" update --target . --yes
-npx --yes "github:wtulloch/harness-starter-kit#<TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE>" validate --target .
-npx --yes "github:wtulloch/harness-starter-kit#<TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE>" doctor --target .
+npx --yes "github:wtulloch/harness-starter-kit#v0.6.0" status --target .
+npx --yes "github:wtulloch/harness-starter-kit#v0.6.0" update --target . --yes
+npx --yes "github:wtulloch/harness-starter-kit#v0.6.0" validate --target .
+npx --yes "github:wtulloch/harness-starter-kit#v0.6.0" doctor --target .
 ```
 
 Updates replace unchanged harness-managed scripts, refresh only the sentinel-owned
@@ -80,8 +79,8 @@ Use the dedicated interface in both the plan and mutation when you explicitly
 approve that migration:
 
 ```bash
-npx --yes "github:wtulloch/harness-starter-kit#<TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE>" plan --target . --profile standard --migrate-instructions
-npx --yes "github:wtulloch/harness-starter-kit#<TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE>" init --target . --profile standard --migrate-instructions --yes
+npx --yes "github:wtulloch/harness-starter-kit#v0.6.0" plan --target . --profile standard --migrate-instructions
+npx --yes "github:wtulloch/harness-starter-kit#v0.6.0" init --target . --profile standard --migrate-instructions --yes
 ```
 
 The installer owns only catalog-defined artifacts. The generator remains
@@ -95,16 +94,16 @@ state. Starter architecture, conventions, and glossary references remain under
 If npx cannot infer the executable, select the package and binary explicitly:
 
 ```bash
-npm exec --yes --package="github:wtulloch/harness-starter-kit#<TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE>" -- starter-harness plan --target . --profile standard
+npm exec --yes --package="github:wtulloch/harness-starter-kit#v0.6.0" -- starter-harness plan --target . --profile standard
 ```
 
 If npm's temporary Git clone fails, verify direct Git access and run the installer
-from an inspected checkout. Keep the checkout pinned to the same accepted commit:
+from an inspected checkout. Keep the checkout pinned to the same release tag:
 
 ```bash
 git clone https://github.com/wtulloch/harness-starter-kit.git
 cd harness-starter-kit
-git checkout <TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE>
+git checkout v0.6.0
 node installer/cli.mjs plan --target /path/to/target --profile standard
 ```
 
@@ -115,11 +114,11 @@ trailing `--yes` only when you are ready to write.
 
 ## Generate into your repo
 
-1. Plan and initialize the `full` profile with the same pinned package commit:
+1. Plan and initialize the `full` profile with the same pinned package version:
 
    ```bash
-   npx --yes "github:wtulloch/harness-starter-kit#<TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE>" plan --target . --profile full
-   npx --yes "github:wtulloch/harness-starter-kit#<TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE>" init --target . --profile full --yes
+   npx --yes "github:wtulloch/harness-starter-kit#v0.6.0" plan --target . --profile full
+   npx --yes "github:wtulloch/harness-starter-kit#v0.6.0" init --target . --profile full --yes
    ```
 
 2. Open or reload the target in a supported host so Agent Skill discovery sees
@@ -149,6 +148,27 @@ trailing `--yes` only when you are ready to write.
 
 The flow is **resumable and idempotent**: re-running tops up genuinely missing
 files without reverting your edits, unless you pass `overwrite=true`.
+
+### Updating the documented release version
+
+Create releases through npm's version lifecycle so `package.json` and the public
+installation examples stay synchronized:
+
+```bash
+npm version patch
+```
+
+Use `minor`, `major`, or an explicit semantic version when appropriate. The
+`version` lifecycle runs `tools/sync-adoption-version.mjs`, updates and stages
+`ADOPTING.md` and `README.md`, and then lets npm create its local version commit
+and tag. The starter-kit sync workflow publishes a separate annotated tag in the
+target repository. Existing release tags are never moved.
+
+When the opt-in hook is enabled with `git config core.hooksPath .githooks`, it
+runs the synchronizer in check mode and blocks a commit whose documented tag does
+not match `package.json`. Generated target repositories do not receive the
+repo-local synchronizer, so their emitted hook continues to run only harness
+validation.
 
 ## Pinned host acceptance
 

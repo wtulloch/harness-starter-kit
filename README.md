@@ -50,12 +50,13 @@ session. It is **not** a hardware harness or a software *test* harness; here the
 
 ## How to use it
 
-- **Install the fixed harness core**: after remote acceptance, use Node.js `>=18`
-  and Git on `PATH`, then plan first with the canonical immutable package spec:
-  `npx --yes github:wtulloch/harness-starter-kit#<TARGET-40-CHARACTER-COMMIT-SHA-AFTER-ACCEPTANCE> plan --target . --profile standard`.
-  The placeholder is intentionally non-runnable until Phase 4 acceptance records
-  the target SHA. After reviewing the plan, initialize with the same package spec
-  and append the installer's `--yes`. The leading `npx --yes` accepts npm's
+- **Install the fixed harness core**: use Node.js `>=18` and Git on `PATH`, then
+  plan first with the canonical semantic-version package spec:
+  `npx --yes github:wtulloch/harness-starter-kit#v0.6.0 plan --target . --profile standard`.
+  The immutable release tag is published from `package.json`; acceptance also
+  records its resolved target SHA for byte-exact provenance. After reviewing the
+  plan, initialize with the same package spec and append the installer's `--yes`.
+  The leading `npx --yes` accepts npm's
   remote-package prompt; a trailing `--yes` after `init` or `update` authorizes
   the installer mutation. Brownfield migration of
   `.github/copilot-instructions.md` is separate consent: add
