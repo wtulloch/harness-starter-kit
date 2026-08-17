@@ -16,7 +16,7 @@ required.
 
 * `project-slug` is a kebab-case tracking identifier. Infer it from repository
   metadata when unambiguous; otherwise ask the user.
-* `profile` selects `doc-only`, `standard`, or `full`. Default to `standard`.
+* `profile` selects `doc-only`, `standard`, or `full`. Default to `full`.
 * `target` identifies the repository root. Default to the current workspace.
 * `overwrite` permits replacing harness-owned files only when explicitly true.
   Default to false.

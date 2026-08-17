@@ -50,9 +50,9 @@ session. It is **not** a hardware harness or a software *test* harness; here the
 
 ## How to use it
 
-- **Install the fixed harness core**: use Node.js `>=18` and Git on `PATH`, then
+- **Install the fixed harness core**: use Node.js `>=22` and Git on `PATH`, then
   plan first with the canonical semantic-version package spec:
-  `npx --yes github:wtulloch/harness-starter-kit#v0.6.0 plan --target . --profile standard`.
+  `npx --yes github:wtulloch/harness-starter-kit#v0.6.0 plan --target .`.
   The immutable release tag is published from `package.json`; acceptance also
   records its resolved target SHA for byte-exact provenance. After reviewing the
   plan, initialize with the same package spec and append the installer's `--yes`.
@@ -61,8 +61,8 @@ session. It is **not** a hardware harness or a software *test* harness; here the
   the installer mutation. Brownfield migration of
   `.github/copilot-instructions.md` is separate consent: add
   `--migrate-instructions` to both `plan` and `init`, for example
-  `plan --target . --profile standard --migrate-instructions`, then
-  `init --target . --profile standard --migrate-instructions --yes`.
+  `plan --target . --migrate-instructions`, then
+  `init --target . --migrate-instructions --yes`.
 - **Install the generator without copying files**: use the same pinned package
   with `init --target . --profile full --yes`. Open the disposable target in VS
   Code Chat or start GitHub Copilot CLI there, then invoke the canonical Agent
@@ -71,7 +71,7 @@ session. It is **not** a hardware harness or a software *test* harness; here the
   own the workflow. `.github/prompts` is a VS Code-specific adapter surface and
   is not a Copilot CLI workflow surface.
 - **Try mutable main**: after remote acceptance, the convenience form
-  `npx --yes github:wtulloch/harness-starter-kit plan --target . --profile standard`
+  `npx --yes github:wtulloch/harness-starter-kit plan --target .`
   follows mutable `main` and is not reproducible. Public repositories need no Git
   credentials; private access uses your Git HTTPS credential helper, personal
   access token, or SSH key, not npm registry authentication. The remote channel

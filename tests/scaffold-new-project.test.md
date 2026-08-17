@@ -310,7 +310,7 @@ grep -qF 'eol=lf' .gitattributes
 **Action**: Inspect what Phase 3b did for the selected profile. The canonical
 fixed-artifact membership is
 [adoption-profiles.json](../.github/skills/scaffold-harness/references/adoption-profiles.json).
-Run this stage once with each profile: `doc-only`, default `standard`, and `full`.
+Run this stage once with each profile: `doc-only`, `standard`, and default `full`.
 
 **Expected**:
 

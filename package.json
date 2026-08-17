@@ -1,6 +1,6 @@
 {
   "name": "starter-harness",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "description": "Dependency-free installer for the starter AI-agent engineering harness",
   "type": "module",
@@ -8,7 +8,7 @@
     "starter-harness": "installer/cli.mjs"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "files": [
     "installer/",

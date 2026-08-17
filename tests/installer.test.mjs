@@ -138,9 +138,10 @@ test('plan resolves the catalog default without writing', () => {
   const { target, cleanup } = fixture();
   try {
     const plan = createPlan({ command: 'plan', target });
-    assert.equal(plan.profile, 'standard');
+    assert.equal(plan.profile, 'full');
     assert.equal(plan.conflicts.length, 0);
-    assert.equal(plan.operations.filter((operation) => operation.type === 'write').length, 18);
+    assert.ok(plan.operations.some((operation) => operation.path === '.github/skills/build-harness/SKILL.md'));
+    assert.ok(plan.operations.some((operation) => operation.path === '.github/workflows/validate.yml'));
     assert.deepEqual(readdirSync(target), []);
   } finally { cleanup(); }
 });
@@ -240,7 +241,7 @@ test('plan appends manifest-derived doctor tools without replacing existing entr
 test('init applies standard profile, validates it, and records clean ownership', async () => {
   const { target, cleanup } = fixture();
   try {
-    const code = await runQuiet({ command: 'init', target, profile: undefined, yes: true, json: true, dryRun: false });
+    const code = await runQuiet({ command: 'init', target, profile: 'standard', yes: true, json: true, dryRun: false });
     assert.equal(code, 0);
     assert.equal(existsSync(join(target, 'harness', 'installation.yml')), true);
     assert.equal(existsSync(join(target, 'harness-scripts', 'validate-harness.mjs')), true);

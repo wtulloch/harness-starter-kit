@@ -8,12 +8,12 @@ your own repository. For what a harness is and how the pieces compose, see
 
 - Choose a supported host: VS Code Chat with Agent Skills enabled, or an
    authenticated and licensed GitHub Copilot CLI build with Agent Skills enabled.
-- Node.js `>=18` is the harness runtime requirement for the installer and the
+- Node.js `>=22` is the harness runtime requirement for the installer and the
    dependency-free scripts in `standard` and `full`; a manually copied
    `doc-only` profile needs no harness runtime.
 - Copilot CLI installation requirements are separate from the harness Node
    requirement. Install and authenticate the pinned CLI build by its official
-   release instructions; do not infer its supported runtime from Node.js `>=18`.
+   release instructions; do not infer its supported runtime from Node.js `>=22`.
 - npm/npx and Git on `PATH` are required for direct GitHub package execution.
 - Git access to `wtulloch/harness-starter-kit`. Public access needs no credentials.
    Private access uses the credentials Git already recognizes, such as an HTTPS
@@ -35,8 +35,8 @@ to be copied manually. The repository is not published to the npm registry.
 Always plan first. For repeatable adoption, use the published version tag:
 
 ```bash
-npx --yes "github:wtulloch/harness-starter-kit#v0.6.0" plan --target . --profile standard
-npx --yes "github:wtulloch/harness-starter-kit#v0.6.0" init --target . --profile standard --yes
+npx --yes "github:wtulloch/harness-starter-kit#v0.6.0" plan --target .
+npx --yes "github:wtulloch/harness-starter-kit#v0.6.0" init --target . --yes
 ```
 
 The first `--yes`, before the GitHub package spec, belongs to npx and accepts its
@@ -49,10 +49,10 @@ only when you intentionally want the latest available source rather than a
 reproducible installation:
 
 ```bash
-npx --yes github:wtulloch/harness-starter-kit plan --target . --profile standard
+npx --yes github:wtulloch/harness-starter-kit plan --target .
 ```
 
-`standard` is the default; `doc-only` and `full` are also supported. The CLI reads
+`full` is the default; `doc-only` and `standard` are also supported. The CLI reads
 the canonical profile catalog directly, preflights every path and ownership
 conflict, and writes nothing when planning or when any conflict exists. It records
 source and installed hashes in `harness/installation.yml`. Use the same immutable
@@ -79,8 +79,8 @@ Use the dedicated interface in both the plan and mutation when you explicitly
 approve that migration:
 
 ```bash
-npx --yes "github:wtulloch/harness-starter-kit#v0.6.0" plan --target . --profile standard --migrate-instructions
-npx --yes "github:wtulloch/harness-starter-kit#v0.6.0" init --target . --profile standard --migrate-instructions --yes
+npx --yes "github:wtulloch/harness-starter-kit#v0.6.0" plan --target . --migrate-instructions
+npx --yes "github:wtulloch/harness-starter-kit#v0.6.0" init --target . --migrate-instructions --yes
 ```
 
 The installer owns only catalog-defined artifacts. The generator remains
@@ -94,7 +94,7 @@ state. Starter architecture, conventions, and glossary references remain under
 If npx cannot infer the executable, select the package and binary explicitly:
 
 ```bash
-npm exec --yes --package="github:wtulloch/harness-starter-kit#v0.6.0" -- starter-harness plan --target . --profile standard
+npm exec --yes --package="github:wtulloch/harness-starter-kit#v0.6.0" -- starter-harness plan --target .
 ```
 
 If npm's temporary Git clone fails, verify direct Git access and run the installer
@@ -104,7 +104,7 @@ from an inspected checkout. Keep the checkout pinned to the same release tag:
 git clone https://github.com/wtulloch/harness-starter-kit.git
 cd harness-starter-kit
 git checkout v0.6.0
-node installer/cli.mjs plan --target /path/to/target --profile standard
+node installer/cli.mjs plan --target /path/to/target
 ```
 
 For a private repository, fix `git clone` authentication first. Clearing npm
@@ -138,7 +138,7 @@ trailing `--yes` only when you are ready to write.
 
    Optional inputs: `stack=...` to tailor instructions, `overwrite=false`
    (default) to keep adoption non-destructive, and
-   `profile={doc-only|standard|full}`. `standard` is the default.
+   `profile={doc-only|standard|full}`. `full` is the default.
 4. Answer the short interview (purpose, stack, build/test commands, conventions,
    desired skills). The generator seeds answers from your README / package manifest.
 5. Review the file plan at the **Phase 2 confirm gate** — nothing is written until
@@ -195,9 +195,8 @@ The canonical fixed-artifact membership lives in
 The generator reads that catalog directly:
 
 - `doc-only` emits the fixed Layer 0 foundation with no executable artifacts.
-- `standard` is the default and adds the complete executable group plus doctor
-   and guard manifests.
-- `full` adds the validation workflow, inert local pre-commit hook, GitHub
+- `standard` adds the complete executable group plus doctor and guard manifests.
+- `full` is the default and adds the validation workflow, inert local pre-commit hook, GitHub
    Copilot agent-hooks configuration, and the complete `/build-harness`
    bootstrap: canonical skill, optional agent, instructions and references,
    starter-owned references, and templates. The generator creates project-owned

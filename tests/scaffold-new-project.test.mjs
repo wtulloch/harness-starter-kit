@@ -79,7 +79,7 @@ const atomicGroupsSplit = profileEntries.flatMap(([profile, ids]) =>
   }));
 
 check('profile-catalog-schema', PROFILE_CATALOG.schemaVersion === 1
-  && PROFILE_CATALOG.defaultProfile === 'standard'
+  && PROFILE_CATALOG.defaultProfile === 'full'
   && PROFILE_NAMES.every((name) => Array.isArray(PROFILE_CATALOG.profiles?.[name]))
   && Object.keys(PROFILE_CATALOG.profiles ?? {}).length === PROFILE_NAMES.length);
 check('profile-catalog-artifacts', unknownProfileArtifacts.length === 0
@@ -163,11 +163,11 @@ check('dual-host-product-guidance', /VS Code Chat/.test(readmeGuidance)
   && /Agent Skill/.test(readmeGuidance)
   && /--migrate-instructions/.test(readmeGuidance)
   && !/Copilot CLI.+prompt file/is.test(readmeGuidance));
-check('dual-host-adoption-contract', /Node\.js `>=18`.+harness/is.test(adoptingGuidance)
+check('dual-host-adoption-contract', /Node\.js `>=22`.+harness/is.test(adoptingGuidance)
   && /Copilot CLI installation requirements/i.test(adoptingGuidance)
   && /inert shared hook/i.test(adoptingGuidance)
-  && /plan --target \. --profile standard --migrate-instructions/.test(adoptingGuidance)
-  && /init --target \. --profile standard --migrate-instructions --yes/.test(adoptingGuidance)
+  && /plan --target \. --migrate-instructions/.test(adoptingGuidance)
+  && /init --target \. --migrate-instructions --yes/.test(adoptingGuidance)
   && !/bootstrap: canonical skill, optional agent, VS Code adapter/.test(adoptingGuidance));
 check('dual-host-manual-acceptance-contract', [
   /## VS Code Chat acceptance/,
@@ -1091,7 +1091,7 @@ try {
   const profileCatalog = join(target, '.github', 'skills', 'scaffold-harness', 'references', 'adoption-profiles.json');
   const cleanCatalog = {
     schemaVersion: 1,
-    defaultProfile: 'standard',
+    defaultProfile: 'full',
     atomicGroups: {},
     artifacts: fixtureArtifacts,
     profiles: { 'doc-only': [], standard: fixtureIds, full: fixtureIds },
@@ -1151,7 +1151,7 @@ try {
   if (target) rmSync(target, { recursive: true, force: true });
 }
 
-// --- Phase 3 profile matrix: doc-only < standard (default) < full. ----------
+// --- Phase 3 profile matrix: doc-only < standard < full (default). ----------
 let target2;
 try {
   target2 = scaffoldFixture('doc-only');
@@ -1166,11 +1166,10 @@ try {
 
 let target3;
 try {
-  target3 = scaffoldFixture();
+  target3 = scaffoldFixture('standard');
   const executableTargets = PROFILE_CATALOG.atomicGroups['executable-layer']
     .map((id) => PROFILE_CATALOG.artifacts[id].target);
-  check('profile-standard-is-default', PROFILE_CATALOG.defaultProfile === 'standard'
-    && executableTargets.every((path) => existsSync(join(target3, path))));
+  check('profile-standard-executable-present', executableTargets.every((path) => existsSync(join(target3, path))));
   check('profile-standard-automation-absent', !existsSync(join(target3, '.github', 'workflows', 'validate.yml'))
     && !existsSync(join(target3, '.githooks', 'pre-commit'))
     && !existsSync(join(target3, '.github', 'hooks', 'hooks.json')));
@@ -1180,10 +1179,12 @@ try {
 
 let targetFull;
 try {
-  targetFull = scaffoldFixture('full');
-  check('profile-full-automation-present', existsSync(join(targetFull, '.github', 'workflows', 'validate.yml'))
+  targetFull = scaffoldFixture();
+  check('profile-full-is-default', PROFILE_CATALOG.defaultProfile === 'full'
+    && existsSync(join(targetFull, '.github', 'workflows', 'validate.yml'))
     && existsSync(join(targetFull, '.githooks', 'pre-commit'))
-    && existsSync(join(targetFull, '.github', 'hooks', 'hooks.json')));
+    && existsSync(join(targetFull, '.github', 'hooks', 'hooks.json'))
+    && existsSync(join(targetFull, '.github', 'skills', 'build-harness', 'SKILL.md')));
   check('profile-full-hook-inactive', !existsSync(join(targetFull, '.git')));
 } finally {
   if (targetFull) rmSync(targetFull, { recursive: true, force: true });
@@ -1195,7 +1196,7 @@ try {
 // fixed one-level-up offset from the script's own on-disk location.
 let target4;
 try {
-  target4 = scaffoldFixture();
+  target4 = scaffoldFixture('standard');
 
   // Relocate the executable layer two levels deeper: target4/tools/harness-scripts/.
   const nestedDir = join(target4, 'tools', 'harness-scripts');

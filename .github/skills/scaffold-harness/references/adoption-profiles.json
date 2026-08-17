@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "defaultProfile": "standard",
+  "defaultProfile": "full",
   "retiredArtifacts": {
     "knowledge-architecture": {
       "target": "knowledge-base/architecture.md",

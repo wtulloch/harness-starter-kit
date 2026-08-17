@@ -175,8 +175,8 @@ Principles:
   deterministic check to the validator so the class can never recur unnoticed.
 - **Never required to run.** The doc harness is complete on its own; the
   executable layers are enhancements. Fixed artifacts come from the canonical
-  adoption-profile catalog. `doc-only` emits Layer 0, `standard` is the default
-  and adds the atomic L1/L3/L4 executable group plus manifests, and `full` adds
+  adoption-profile catalog. `doc-only` emits Layer 0, `standard` adds the atomic
+  L1/L3/L4 executable group plus manifests, and `full` is the default and adds
   L2/L2.5 automation. Scripts remain inert until a runtime is present. The local
   hook is never activated automatically, and the shared agent-hooks file has no
   event wiring. Run session scripts manually until adapters are validated for

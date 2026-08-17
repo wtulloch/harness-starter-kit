@@ -132,10 +132,10 @@ resolve the requested profile. Reject unknown names before writing. The profiles
 are cumulative:
 
 - `doc-only` emits the fixed Layer 0 foundation.
-- `standard` is the default and adds the complete executable group plus its
-  doctor and guard manifests.
-- `full` adds the CI workflow, inert local pre-commit hook, and GitHub Copilot
-  agent-hooks configuration.
+- `standard` adds the complete executable group plus its doctor and guard
+  manifests.
+- `full` is the default and adds the CI workflow, inert local pre-commit hook,
+  GitHub Copilot agent-hooks configuration, and generator bootstrap.
 
 Apply the catalog operation for every selected artifact: `copy` is a verbatim
 source copy, `template` fills placeholders and strips generator headers,

@@ -799,8 +799,8 @@ if (existsSync(profileCatalogPath)) {
     if (catalog.schemaVersion !== 1) {
       fail('emit-contract', `${PROFILE_CATALOG}: schemaVersion must be 1`);
     }
-    if (catalog.defaultProfile !== 'standard') {
-      fail('emit-contract', `${PROFILE_CATALOG}: defaultProfile must be standard`);
+    if (catalog.defaultProfile !== 'full') {
+      fail('emit-contract', `${PROFILE_CATALOG}: defaultProfile must be full`);
     }
     if (Object.keys(profiles).sort().join(',') !== [...PROFILE_NAMES].sort().join(',')) {
       fail('emit-contract', `${PROFILE_CATALOG}: profiles must be exactly ${PROFILE_NAMES.join(', ')}`);
