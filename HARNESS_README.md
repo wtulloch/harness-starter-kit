@@ -52,7 +52,7 @@ session. It is **not** a hardware harness or a software *test* harness; here the
 
 - **Install the fixed harness core**: use Node.js `>=22` and Git on `PATH`, then
   plan first with the canonical semantic-version package spec:
-  `npx --yes github:wtulloch/harness-starter-kit#v0.7.1 plan --target .`.
+  `npx --yes github:wtulloch/harness-starter-kit#v0.7.2 plan --target .`.
   The immutable release tag is published from `package.json`; acceptance also
   records its resolved target SHA for byte-exact provenance. After reviewing the
   plan, initialize with the same package spec and append the installer's `--yes`.
